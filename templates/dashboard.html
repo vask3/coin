@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <title>Табло - VASKO Coin</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #121212; color: #fff; text-align: center; padding: 40px; }
+        .card { background: #1e1e1e; padding: 30px; border-radius: 12px; display: inline-block; width: 380px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        h1 { color: #00ffcc; }
+        .stat { font-size: 18px; margin: 15px 0; text-align: left; background: #2a2a2a; padding: 10px 15px; border-radius: 8px; }
+        button { padding: 12px 20px; background: #ffcc00; color: #000; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; margin-top: 10px;}
+        a.logout { color: #ff4444; display: block; margin-top: 25px; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🚀 VASKO Network</h1>
+        <p>Здравей, <b>{{ username }}</b>!</p>
+        
+        <div class="stat">💰 <b>Баланс:</b> <span style="color: #00ffcc; font-size: 20px;">{{ balance }} {{ symbol }}</span></div>
+        <div class="stat">📡 <b>Последен сензор:</b> {{ last_sensor }}</div>
+        <div class="stat">⚡ <b>Трудност на мрежата:</b> {{ difficulty }}</div>
+        
+        <hr style="border-color: #333; margin: 20px 0;">
+        <h3>🎁 Безплатно кранче</h3>
+        <button onclick="getFaucet()">Вземи 50 {{ symbol }}</button>
+        <p id="faucetMsg" style="margin-top: 12px; font-size: 14px; font-weight: bold;"></p>
+
+        <a class="logout" href="/logout">Изход</a>
+    </div>
+
+    <script>
+        function getFaucet() {
+            fetch('/faucet', { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('faucetMsg').innerText = data.message;
+                if(data.status === 'SUCCESS') setTimeout(() => location.reload(), 2000);
+            });
+        }
+    </script>
+</body>
+</html>
