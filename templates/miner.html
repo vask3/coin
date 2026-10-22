@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <title>VASKO Web Miner</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #121212; color: #fff; text-align: center; padding: 30px; }
+        .card { background: #1e1e1e; padding: 25px; border-radius: 12px; display: inline-block; width: 380px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); text-align: left; }
+        input { padding: 10px; margin: 8px 0; width: 92%; border-radius: 6px; border: none; font-size: 14px; background: #2a2a2a; color: #fff; }
+        button { padding: 12px; width: 100%; background: #00ffcc; color: #000; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        .stop-btn { background: #ff4444 !important; color: #fff !important; }
+        .stat { font-size: 14px; margin: 10px 0; background: #2a2a2a; padding: 8px 12px; border-radius: 6px; }
+        h1 { color: #00ffcc; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>⛏️ Web Miner</h1>
+        <label>Потребителско име:</label>
+        <input type="text" id="username" placeholder="Въведи име">
+        
+        <label>6-символен ключ:</label>
+        <input type="text" id="miningKey" placeholder="Напр. A7X9K2" maxlength="6" style="text-transform: uppercase;">
+        
+        <button id="toggleBtn" onclick="toggleMining()">Стартирай копаенето</button>
+        
+        <div style="margin-top: 20px;">
+            <div class="stat">Статус: <span id="status" style="color: #ffcc00;">Спрян</span></div>
+            <div class="stat">Изкопани блокове (сесия): <span id="blocksCount" style="color: #00ffcc;">0</span></div>
+            <div class="stat">Хешове в секунда (H/s): <span id="hashRate">0</span></div>
+        </div>
+        <p id="log" style="font-size: 12px; color: #aaa; margin-top: 15px; word-break: break-all;"></p>
+    </div>
+
+    <script>
+        let mining = false;
+        let blocksMined = 0;
+        let hashesTotal = 0;
+        let intervalId = null;
+
+        async function sha256(message) {
+            const msgBuffer = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        async function toggleMining() {
+            const btn = document.getElementById('toggleBtn');
+            if (!mining) {
+                const username = document.getElementById('username').value.trim();
+                const miningKey = document.getElementById('miningKey').value.trim().toUpperCase();
+                if (!username || miningKey.length !== 6) {
+                    alert("Моля, въведи потребител и валиден 6-символен ключ!");
+                    return;
+                }
+                mining = true;
+                btn.innerText = "Спри копаенето";
+                btn.className = "stop-btn";
+                document.getElementById('status').innerText = "Копае активнно...";
+                
+                startMiningLoop(username, miningKey);
+            } else {
+                mining = false;
+                clearInterval(intervalId);
+                btn.innerText = "Стартирай копаенето";
+                btn.className = "";
+                document.getElementById('status').innerText = "Спрян";
+            }
+        }
+
+        async function startMiningLoop(username, miningKey) {
+            // Измерване на хешрейта
+            let startTime = Date.now();
+            
+            while (mining) {
+                try {
+                    // 1. Взимаме задача от сървъра
+                    let res = await fetch('/get_job');
+                    let job = await res.json();
+                    let target = job.target;
+                    let difficulty = job.difficulty;
+
+                    document.getElementById('log').innerText = `Взета задача. Търся хеш с труд: ${difficulty}...`;
+
+                    let nonce = 0;
+                    let found = false;
+
+                    // Опитваме се да намерим валиден nonce чрез груба сила в браузъра
+                    while (mining && nonce < 50000) {
+                        nonce++;
+                        hashesTotal++;
+                        
+                        let combined = target + nonce;
+                        let hash = await sha256(combined);
+
+                        if (hash.startsWith(difficulty)) {
+                            found = true;
+                            document.getElementById('log').innerText = `Намерен блок! Изпращам към облака...`;
+                            
+                            // 2. Пращаме намереното решение обратно към сървъра
+                            let subRes = await fetch('/submit_block', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    username: username,
+                                    mining_key: miningKey,
+                                    nonce: nonce,
+                                    target: target
+                                })
+                            });
+
+                            let subData = await subRes.json();
+                            if (subRes.ok) {
+                                blocksMined++;
+                                document.getElementById('blocksCount').innerText = blocksMined;
+                                document.getElementById('log').innerText = subData.message;
+                            } else {
+                                document.getElementById('log').innerText = "Грешка: " + subData.message;
+                                if(subRes.status === 429) { // Дневна квота надвишена
+                                    toggleMining();
+                                    alert(subData.message);
+                                    return;
+                                }
+                            }
+                            break;
+                        }
+                    }
+
+                    // Изчисляване на H/s на всеки цикъл
+                    let elapsed = (Date.now() - startTime) / 1000;
+                    if(elapsed > 0) {
+                        document.getElementById('hashRate').innerText = Math.round(hashesTotal / elapsed);
+                    }
+
+                } catch (e) {
+                    document.getElementById('log').innerText = "Грешка в мрежата: " + e.message;
+                    await new Promise(r => setTimeout(r, 3000));
+                }
+            }
+        }
+    </script>
+</body>
+</html>
