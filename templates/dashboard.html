@@ -1,40 +1,44 @@
 <!DOCTYPE html>
-<html lang="bg">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Табло - VASKO Coin</title>
+    <title>Dashboard - VASKO Coin</title>
     <style>
         body { font-family: Arial, sans-serif; background: #121212; color: #fff; text-align: center; padding: 30px; }
-        .card { background: #1e1e1e; padding: 25px; border-radius: 12px; display: inline-block; width: 380px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); text-align: left; }
+        .card { background: #1e1e1e; padding: 25px; border-radius: 12px; display: inline-block; width: 400px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); text-align: left; }
         h1 { color: #00ffcc; text-align: center; }
-        .stat { font-size: 15px; margin: 12px 0; background: #2a2a2a; padding: 10px 14px; border-radius: 8px; }
+        .stat { font-size: 15px; margin: 12px 0; background: #2a2a2a; padding: 10px 14px; border-radius: 8px; word-break: break-all; }
         button { padding: 12px; width: 100%; background: #ffcc00; color: #000; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; margin-top: 10px;}
         .miner-btn { background: #00ffcc !important; }
+        .regen-btn { background: #ff9900 !important; font-size: 13px; padding: 8px; margin-top: 5px; }
         a.logout { color: #ff4444; display: block; margin-top: 20px; text-decoration: none; text-align: center; }
     </style>
 </head>
 <body>
     <div class="card">
         <h1>🚀 VASKO Network</h1>
-        <p style="text-align: center;">Здравей, <b>{{ username }}</b>!</p>
+        <p style="text-align: center;">Welcome, <b>{{ username }}</b>!</p>
         
-        <div class="stat">💰 <b>Баланс:</b> <span style="color: #00ffcc; font-size: 18px;">{{ balance }} {{ symbol }}</span></div>
-        <div class="stat">🔑 <b>Миньорски ключ:</b> <span style="color: #ffcc00; font-family: monospace; font-size: 16px;">{{ mining_key }}</span></div>
-        <div class="stat">📡 <b>Последен сензор:</b> {{ last_sensor }}</div>
-        <div class="stat">⚡ <b>Трудност:</b> {{ difficulty }}</div>
+        <div class="stat">💰 <b>Balance:</b> <span style="color: #00ffcc; font-size: 18px;">{{ "%.8f"|format(balance) }} {{ symbol }}</span></div>
+        <div class="stat">
+            🔑 <b>Mining Key:</b> <span id="keyDisplay" style="color: #ffcc00; font-family: monospace; font-size: 16px;">{{ mining_key }}</span>
+            <button class="regen-btn" onclick="regenerateKey()">Regenerate New Key</button>
+        </div>
+        <div class="stat">📡 <b>Last Sensor:</b> {{ last_sensor }}</div>
+        <div class="stat">⚡ <b>Difficulty:</b> {{ difficulty }}</div>
         
         <hr style="border-color: #333; margin: 20px 0;">
         
-        <h3>🎁 Безплатно кранче</h3>
-        <button onclick="getFaucet()">Вземи 50 {{ symbol }}</button>
+        <h3>🎁 Free Faucet</h3>
+        <button onclick="getFaucet()">Claim 3 {{ symbol }}</button>
         <p id="faucetMsg" style="margin-top: 8px; font-size: 13px; font-weight: bold; text-align: center;"></p>
 
         <hr style="border-color: #333; margin: 20px 0;">
         
-        <h3>⛏️ Облачен миньор</h3>
-        <button class="miner-btn" onclick="window.location.href='/miner'">Отвори Web Miner</button>
+        <h3>⛏️ Cloud Miner</h3>
+        <button class="miner-btn" onclick="window.location.href='/miner'">Open Web Miner</button>
 
-        <a class="logout" href="/logout">Изход</a>
+        <a class="logout" href="/logout">Logout</a>
     </div>
 
     <script>
@@ -44,6 +48,20 @@
             .then(data => {
                 document.getElementById('faucetMsg').innerText = data.message;
                 if(data.status === 'SUCCESS') setTimeout(() => location.reload(), 2000);
+            });
+        }
+
+        function regenerateKey() {
+            if(!confirm("Are you sure? This will invalidate your old mining key immediately!")) return;
+            fetch('/regenerate_key', { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'SUCCESS') {
+                    document.getElementById('keyDisplay').innerText = data.new_key;
+                    alert("New mining key generated successfully!");
+                } else {
+                    alert("Error: " + data.message);
+                }
             });
         }
     </script>
