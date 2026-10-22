@@ -16,7 +16,7 @@ DEV_ADDRESS = "vasko_creator"
 DEV_SHARE = 0.02
 BASE_BLOCK_REWARD = 1000
 
-current_difficulty = "0030" # Намиксваме малко по-лесна трудност за уеб браузър
+current_difficulty = "0030"
 last_block_time = time.time()
 FOUR_YEARS_SECONDS = 4 * 365 * 24 * 60 * 60
 USERS_FILE = "users.json"
@@ -66,7 +66,6 @@ def register():
         if username in users:
             return render_template("register.html", error="Потребителското име е заето!")
         
-        # Генерираме уникален 6-символен ключ за миньорство при регистрация
         mining_key = ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=6))
 
         users[username] = {
@@ -110,7 +109,6 @@ def dashboard():
     users = load_users()
     user_data = users.get(username, {})
     
-    # Ако няма генериран ключ, му правим един
     if "mining_key" not in user_data:
         user_data["mining_key"] = ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=6))
         save_users(users)
@@ -123,6 +121,10 @@ def dashboard():
                            difficulty=current_difficulty,
                            symbol=COIN_SYMBOL,
                            coin_name=COIN_NAME)
+
+@app.route("/miner")
+def miner_page():
+    return render_template("miner.html")
 
 @app.route("/faucet", methods=["POST"])
 def faucet():
@@ -160,7 +162,6 @@ def submit_block():
     if username not in users or users[username].get("mining_key") != mining_key:
         return jsonify({"status": "REJECTED", "message": "Грешен потребител или 6-символен ключ!"}), 401
 
-    # Проверка за дневна квота (максимум 50 блока на ден от устройство/браузър)
     today = time.strftime("%Y-%m-%d")
     if users[username].get("last_reset_day") != today:
         users[username]["last_reset_day"] = today
@@ -197,7 +198,7 @@ def submit_block():
         save_users(users)
         return jsonify({"status": "ACCEPTED", "message": f"Блокът е приет! Награда: {miner_reward} {COIN_SYMBOL}"})
     else:
-        return jsonify({"status": "REJECTED", "message": "Невалиден хеш (Proof-of-Work грешка)!"}), 400
+        return jsonify({"status": "REJECTED", "message": "Невалиден хеш!"}), 400
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
