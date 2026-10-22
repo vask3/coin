@@ -16,7 +16,7 @@ DEV_ADDRESS = "vasko_creator"
 DEV_SHARE = 0.02
 BASE_BLOCK_REWARD = 1000
 
-current_difficulty = "0000"
+current_difficulty = "0030" # Намиксваме малко по-лесна трудност за уеб браузър
 last_block_time = time.time()
 FOUR_YEARS_SECONDS = 4 * 365 * 24 * 60 * 60
 USERS_FILE = "users.json"
@@ -66,12 +66,18 @@ def register():
         if username in users:
             return render_template("register.html", error="Потребителското име е заето!")
         
+        # Генерираме уникален 6-символен ключ за миньорство при регистрация
+        mining_key = ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=6))
+
         users[username] = {
             "password": generate_password_hash(password),
             "balance": 0.0,
+            "mining_key": mining_key,
             "last_active": time.time(),
             "last_sensor": "Няма данни",
-            "last_faucet": 0
+            "last_faucet": 0,
+            "daily_blocks": 0,
+            "last_reset_day": time.strftime("%Y-%m-%d")
         }
         save_users(users)
         return redirect(url_for("login"))
@@ -103,9 +109,16 @@ def dashboard():
     username = session["user"]
     users = load_users()
     user_data = users.get(username, {})
+    
+    # Ако няма генериран ключ, му правим един
+    if "mining_key" not in user_data:
+        user_data["mining_key"] = ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=6))
+        save_users(users)
+
     return render_template("dashboard.html", 
                            username=username, 
                            balance=user_data.get("balance", 0), 
+                           mining_key=user_data.get("mining_key"),
                            last_sensor=user_data.get("last_sensor", "Няма"), 
                            difficulty=current_difficulty,
                            symbol=COIN_SYMBOL,
@@ -139,15 +152,24 @@ def submit_block():
     global current_difficulty, last_block_time
     data = request.json
     username = data.get("username")
-    password = data.get("password")
+    mining_key = data.get("mining_key")
     nonce = str(data.get("nonce"))
-    sensor_data = data.get("sensor_data", "Няма данни")
+    target_string = data.get("target")
 
     users = load_users()
-    if username not in users or not check_password_hash(users[username]["password"], password):
-        return jsonify({"status": "REJECTED", "message": "Грешни данни за достъп!"}), 401
+    if username not in users or users[username].get("mining_key") != mining_key:
+        return jsonify({"status": "REJECTED", "message": "Грешен потребител или 6-символен ключ!"}), 401
 
-    combined = current_job["target_string"] + nonce
+    # Проверка за дневна квота (максимум 50 блока на ден от устройство/браузър)
+    today = time.strftime("%Y-%m-%d")
+    if users[username].get("last_reset_day") != today:
+        users[username]["last_reset_day"] = today
+        users[username]["daily_blocks"] = 0
+
+    if users[username].get("daily_blocks", 0) >= 50:
+        return jsonify({"status": "REJECTED", "message": "Достигната е дневната квота за копаене (50 блока)!"}), 429
+
+    combined = target_string + nonce
     result_hash = hashlib.sha256(combined.encode()).hexdigest()
 
     if result_hash.startswith(current_difficulty):
@@ -155,9 +177,9 @@ def submit_block():
         time_taken = now - last_block_time
         last_block_time = now
 
-        if time_taken < 30 and len(current_difficulty) < 6:
+        if time_taken < 10 and len(current_difficulty) < 6:
             current_difficulty += "0"
-        elif time_taken > 180 and len(current_difficulty) > 3:
+        elif time_taken > 60 and len(current_difficulty) > 3:
             current_difficulty = current_difficulty[:-1]
 
         current_time = time.time()
@@ -165,17 +187,17 @@ def submit_block():
         miner_reward = BASE_BLOCK_REWARD * (1 - DEV_SHARE)
 
         users[username]["balance"] += miner_reward
+        users[username]["daily_blocks"] += 1
         users[username]["last_active"] = current_time
-        users[username]["last_sensor"] = sensor_data
 
         if DEV_ADDRESS not in users:
             users[DEV_ADDRESS] = {"password": "N/A", "balance": 0, "last_active": current_time}
         users[DEV_ADDRESS]["balance"] += dev_reward
 
         save_users(users)
-        return jsonify({"status": "ACCEPTED", "message": f"Блокът е намерен! Награда: {miner_reward} {COIN_SYMBOL}"})
+        return jsonify({"status": "ACCEPTED", "message": f"Блокът е приет! Награда: {miner_reward} {COIN_SYMBOL}"})
     else:
-        return jsonify({"status": "REJECTED", "message": "Невалиден хеш!"}), 400
+        return jsonify({"status": "REJECTED", "message": "Невалиден хеш (Proof-of-Work грешка)!"}), 400
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
