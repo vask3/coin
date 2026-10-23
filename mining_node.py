@@ -10,7 +10,7 @@ from pymongo import MongoClient
 app = Flask(__name__)
 app.secret_key = "vasko_crypto_super_secret_key"
 
-# --- MONGO DB SETUP (Безопасно зареждане от Render Environment Variables) ---
+# --- MONGO DB SETUP ---
 MONGO_URI = os.environ.get("MONGO_URI")
 client = MongoClient(MONGO_URI)
 db = client["coin"]
@@ -42,7 +42,8 @@ def is_disposable_email(email):
 def home():
     if "user" in session:
         return redirect(url_for("dashboard"))
-    return render_template("index.html")
+    # Вече зарежда твоето налично miner.html от папката templates
+    return render_template("miner.html")
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
