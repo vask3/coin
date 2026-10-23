@@ -17,14 +17,28 @@ db = client["coin"]
 
 users_col = db["users"]
 sensors_col = db["sensor_history"]
+system_col = db["system_state"]  # Колекция за глобалния бюджет
 
 COIN_NAME = "VASKO"
 COIN_SYMBOL = "VASK"
 ADMIN_USERNAME = "vasko_creator"  
 WELCOME_BONUS = 5.0  
 BASE_BLOCK_REWARD = 0.00005000
-
 current_difficulty = "0000"
+
+# --- TOKENOMICS & BUDGET CONFIG ---
+MAX_SUPPLY = 2000000.0
+MARKETING_RESERVE_INIT = 200000.0  # 10% за маркетинг/бонуси
+
+def init_system_budget():
+    if not system_col.find_one({"type": "budget"}):
+        system_col.insert_one({
+            "type": "budget",
+            "marketing_budget": MARKETING_RESERVE_INIT,
+            "total_minted": 0.0
+        })
+
+init_system_budget()
 
 DISPOSABLE_EMAIL_DOMAINS = {
     "mailinator.com", "10minutemail.com", "guerrillamail.com", 
@@ -73,6 +87,10 @@ def register():
             "used_promos": []
         }
         users_col.insert_one(user_doc)
+        
+        # Намаляваме маркетинговия/айдроп бюджет при нова регистрация с бонус
+        system_col.update_one({"type": "budget"}, {"$inc": {"marketing_budget": -WELCOME_BONUS}})
+
         return redirect(url_for("login"))
     return render_template("register.html")
 
@@ -106,12 +124,12 @@ def dashboard():
     last_sensor_doc = sensors_col.find_one(sort=[("_id", -1)])
     sensor_display = last_sensor_doc.get('raw_target', 'Няма данни') if last_sensor_doc else "Няма запечатани данни"
 
-    # 1. Мрежови статистики в реално време
     total_users = users_col.count_documents({})
     total_blocks = sensors_col.count_documents({})
-    
-    # 2. История на изкопаните блокове за конкретния потребител (последните 5)
     user_blocks = list(sensors_col.find({"validated_by": username}).sort("timestamp", -1).limit(5))
+
+    # Взимане на състоянието на бюджета за админа
+    budget_state = system_col.find_one({"type": "budget"}) or {"marketing_budget": 0.0}
 
     return render_template("dashboard.html", 
                            username=username, 
@@ -124,7 +142,9 @@ def dashboard():
                            coin_name=COIN_NAME,
                            total_users=total_users,
                            total_blocks=total_blocks,
-                           user_blocks=user_blocks)
+                           user_blocks=user_blocks,
+                           marketing_budget=budget_state.get("marketing_budget", 0.0),
+                           max_supply=MAX_SUPPLY)
 
 @app.route("/miner")
 def web_miner():
@@ -175,13 +195,28 @@ def admin_transfer():
         return redirect(url_for("dashboard"))
     
     target_user = request.form.get("target_user", "").strip()
+    source_type = request.form.get("source_type", "personal") # "marketing" или "personal"
     try:
         amount = float(request.form.get("amount", 0))
     except ValueError:
         amount = 0.0
 
-    if amount > 0 and users_col.find_one({"username": target_user}):
-        users_col.update_one({"username": target_user}, {"$inc": {"balance": amount}})
+    if amount <= 0 or not users_col.find_one({"username": target_user}):
+        return redirect(url_for("dashboard"))
+
+    if source_type == "marketing":
+        # Проверка дали има достатъчно в маркетинг бюджета
+        budget_state = system_col.find_one({"type": "budget"}) or {"marketing_budget": 0.0}
+        if budget_state.get("marketing_budget", 0.0) >= amount:
+            system_col.update_one({"type": "budget"}, {"$inc": {"marketing_budget": -amount}})
+            users_col.update_one({"username": target_user}, {"$inc": {"balance": amount}})
+    
+    elif source_type == "personal":
+        # Превод от личния баланс на админа (vasko_creator)
+        admin_data = users_col.find_one({"username": ADMIN_USERNAME}) or {}
+        if admin_data.get("balance", 0.0) >= amount:
+            users_col.update_one({"username": ADMIN_USERNAME}, {"$inc": {"balance": -amount}})
+            users_col.update_one({"username": target_user}, {"$inc": {"balance": amount}})
 
     return redirect(url_for("dashboard"))
 
