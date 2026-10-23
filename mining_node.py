@@ -106,6 +106,13 @@ def dashboard():
     last_sensor_doc = sensors_col.find_one(sort=[("_id", -1)])
     sensor_display = last_sensor_doc.get('raw_target', 'Няма данни') if last_sensor_doc else "Няма запечатани данни"
 
+    # 1. Мрежови статистики в реално време
+    total_users = users_col.count_documents({})
+    total_blocks = sensors_col.count_documents({})
+    
+    # 2. История на изкопаните блокове за конкретния потребител (последните 5)
+    user_blocks = list(sensors_col.find({"validated_by": username}).sort("timestamp", -1).limit(5))
+
     return render_template("dashboard.html", 
                            username=username, 
                            balance=user_data.get("balance", 0.0), 
@@ -114,7 +121,10 @@ def dashboard():
                            last_sensor=sensor_display, 
                            difficulty=current_difficulty,
                            symbol=COIN_SYMBOL,
-                           coin_name=COIN_NAME)
+                           coin_name=COIN_NAME,
+                           total_users=total_users,
+                           total_blocks=total_blocks,
+                           user_blocks=user_blocks)
 
 @app.route("/miner")
 def web_miner():
@@ -148,7 +158,12 @@ def submit_block():
 
     if result_hash.startswith(current_difficulty):
         miner_reward = BASE_BLOCK_REWARD
-        sensors_col.insert_one({"validated_by": username, "raw_target": target_string, "block_hash": result_hash, "timestamp": time.time()})
+        sensors_col.insert_one({
+            "validated_by": username, 
+            "raw_target": target_string, 
+            "block_hash": result_hash, 
+            "timestamp": time.time()
+        })
         users_col.update_one({"username": username}, {"$inc": {"balance": miner_reward}})
         return jsonify({"status": "ACCEPTED", "message": f"Блокът е валидиран! Награда: {miner_reward} {COIN_SYMBOL}"})
     else:
