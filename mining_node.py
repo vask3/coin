@@ -42,8 +42,7 @@ def is_disposable_email(email):
 def home():
     if "user" in session:
         return redirect(url_for("dashboard"))
-    # Вече зарежда твоето налично miner.html от папката templates
-    return render_template("miner.html")
+    return redirect(url_for("login"))
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -95,7 +94,7 @@ def login():
 @app.route("/logout")
 def logout():
     session.clear()
-    return redirect(url_for("/"))
+    return redirect(url_for("login"))
 
 @app.route("/dashboard")
 def dashboard():
@@ -117,6 +116,11 @@ def dashboard():
                            difficulty=current_difficulty,
                            symbol=COIN_SYMBOL,
                            coin_name=COIN_NAME)
+
+# Отделна страница за уеб миньора (miner.html)
+@app.route("/miner")
+def web_miner():
+    return render_template("miner.html")
 
 @app.route("/esp32_guides")
 def esp32_guides():
