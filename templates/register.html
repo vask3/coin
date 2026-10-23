@@ -1,16 +1,132 @@
 <!DOCTYPE html>
 <html lang="bg">
-<head><title>Регистрация - VASKO</title></head>
-<body style="font-family:sans-serif; text-align:center; padding-top:50px;">
-    <h2>Регистрация в VASKO</h2>
-    <p style="color:green;">Получавате <b>5 VASK</b> бонус при регистрация!</p>
-    {% if error %}<p style="color:red;">{{ error }}</p>{% endif %}
-    <form method="POST">
-        <input type="text" name="username" placeholder="Потребителско име" required><br><br>
-        <input type="email" name="email" placeholder="Имейл адрес" required><br><br>
-        <input type="password" name="password" placeholder="Парола" required><br><br>
-        <button type="submit">Регистрация</button>
-    </form>
-    <p>Вече имате акаунт? <a href="/login">Вход</a></p>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Регистрация - VASKO (VASK)</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0d1117;
+            color: #c9d1d9;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .register-container {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            padding: 40px;
+            border-radius: 10px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+        .register-container h2 {
+            color: #58a6ff;
+            margin-bottom: 25px;
+            font-size: 26px;
+        }
+        .error-message {
+            background-color: rgba(248, 81, 73, 0.15);
+            border: 1px solid #f85149;
+            color: #ff7b72;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #8b949e;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            background-color: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #ffffff;
+            font-size: 16px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+        .btn-submit {
+            width: 100%;
+            padding: 12px;
+            background-color: #238636;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .btn-submit:hover {
+            background-color: #2ea043;
+        }
+        .footer-links {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #8b949e;
+        }
+        .footer-links a {
+            color: #58a6ff;
+            text-decoration: none;
+        }
+        .footer-links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="register-container">
+        <h2>🪙 Създай акаунт</h2>
+        
+        <!-- Извеждане на грешка, ако има такава от сървъра -->
+        {% if error %}
+            <div class="error-message">{{ error }}</div>
+        {% endif %}
+
+        <form method="POST" action="/register">
+            <div class="form-group">
+                <label for="username">Потребителско име</label>
+                <input type="text" id="username" name="username" placeholder="Въведете име..." required>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Имейл адрес (незадължително)</label>
+                <input type="email" id="email" name="email" placeholder="name@example.com">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Парола</label>
+                <input type="password" id="password" name="password" placeholder="••••••••" required>
+            </div>
+
+            <button type="submit" class="btn-submit">Регистрация</button>
+        </form>
+
+        <div class="footer-links">
+            Вече имаш акаунт? <a href="/login">Вход тук</a>
+        </div>
+    </div>
+
 </body>
 </html>
