@@ -17,18 +17,19 @@ db = client["coin"]
 
 users_col = db["users"]
 sensors_col = db["sensor_history"]
-system_col = db["system_state"]  # Колекция за глобалния бюджет
+system_col = db["system_state"]
+tx_col = db["transactions"]  # Лог на всички транзакции
 
 COIN_NAME = "VASKO"
 COIN_SYMBOL = "VASK"
 ADMIN_USERNAME = "vasko_creator"  
 WELCOME_BONUS = 5.0  
 BASE_BLOCK_REWARD = 0.00005000
+STAKING_DAILY_RATE = 0.001  # 0.1% дневна лихва
 current_difficulty = "0000"
 
-# --- TOKENOMICS & BUDGET CONFIG ---
 MAX_SUPPLY = 2000000.0
-MARKETING_RESERVE_INIT = 200000.0  # 10% за маркетинг/бонуси
+MARKETING_RESERVE_INIT = 200000.0
 
 def init_system_budget():
     if not system_col.find_one({"type": "budget"}):
@@ -39,6 +40,15 @@ def init_system_budget():
         })
 
 init_system_budget()
+
+def log_transaction(sender, receiver, amount, tx_type):
+    tx_col.insert_one({
+        "sender": sender,
+        "receiver": receiver,
+        "amount": amount,
+        "type": tx_type,  # 'reward', 'admin_transfer', 'staking_yield', 'welcome_bonus'
+        "timestamp": time.time()
+    })
 
 DISPOSABLE_EMAIL_DOMAINS = {
     "mailinator.com", "10minutemail.com", "guerrillamail.com", 
@@ -56,6 +66,19 @@ def home():
     if "user" in session:
         return redirect(url_for("dashboard"))
     return render_template("index.html")
+
+# Публично API за началната страница (Live статус на мрежата)
+@app.route("/api/network_status")
+def api_network_status():
+    last_block = sensors_col.find_one(sort=[("_id", -1)])
+    next_target = f"SYS_NODE_TEMP:24.5_TIME:{int(time.time())}"
+    return jsonify({
+        "next_target": next_target,
+        "difficulty": current_difficulty,
+        "total_blocks": sensors_col.count_documents({}),
+        "last_block_hash": last_block.get("block_hash", "N/A") if last_block else "Няма запечатани блокове",
+        "last_miner": last_block.get("validated_by", "N/A") if last_block else "N/A"
+    })
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -81,15 +104,15 @@ def register():
             "email": email,
             "password": generate_password_hash(password),
             "balance": WELCOME_BONUS,
+            "staked_balance": 0.0,
             "mining_key": mining_key,
             "role": role,
             "last_active": time.time(),
-            "used_promos": []
+            "last_staking_claim": time.time()
         }
         users_col.insert_one(user_doc)
-        
-        # Намаляваме маркетинговия/айдроп бюджет при нова регистрация с бонус
         system_col.update_one({"type": "budget"}, {"$inc": {"marketing_budget": -WELCOME_BONUS}})
+        log_transaction("SYSTEM_AIRDROP", username, WELCOME_BONUS, "welcome_bonus")
 
         return redirect(url_for("login"))
     return render_template("register.html")
@@ -127,13 +150,12 @@ def dashboard():
     total_users = users_col.count_documents({})
     total_blocks = sensors_col.count_documents({})
     user_blocks = list(sensors_col.find({"validated_by": username}).sort("timestamp", -1).limit(5))
-
-    # Взимане на състоянието на бюджета за админа
     budget_state = system_col.find_one({"type": "budget"}) or {"marketing_budget": 0.0}
 
     return render_template("dashboard.html", 
                            username=username, 
                            balance=user_data.get("balance", 0.0), 
+                           staked_balance=user_data.get("staked_balance", 0.0),
                            mining_key=user_data.get("mining_key", "N/A"),
                            role=user_data.get("role", "user"),
                            last_sensor=sensor_display, 
@@ -145,6 +167,60 @@ def dashboard():
                            user_blocks=user_blocks,
                            marketing_budget=budget_state.get("marketing_budget", 0.0),
                            max_supply=MAX_SUPPLY)
+
+# --- STAKING ACTIONS ---
+@app.route("/staking/deposit", methods=["POST"])
+def staking_deposit():
+    if "user" not in session:
+        return redirect(url_for("login"))
+    
+    username = session["user"]
+    try:
+        amount = float(request.form.get("amount", 0))
+    except ValueError:
+        amount = 0.0
+
+    user = users_col.find_one({"username": username})
+    if user and amount > 0 and user.get("balance", 0.0) >= amount:
+        users_col.update_one({"username": username}, {
+            "$inc": {"balance": -amount, "staked_balance": amount}
+        })
+        log_transaction(username, "STAKING_POOL", amount, "staking_deposit")
+
+    return redirect(url_for("dashboard"))
+
+@app.route("/staking/claim", methods=["POST"])
+def staking_claim():
+    if "user" not in session:
+        return redirect(url_for("login"))
+    
+    username = session["user"]
+    user = users_col.find_one({"username": username})
+    if user:
+        staked = user.get("staked_balance", 0.0)
+        last_claim = user.get("last_staking_claim", time.time())
+        now = time.time()
+        
+        # Изчисляване на лихвата
+        hours_passed = (now - last_claim) / 3600.0
+        if hours_passed >= 1 and staked > 0:
+            yield_reward = staked * (STAKING_DAILY_RATE / 24.0) * hours_passed
+            users_col.update_one({"username": username}, {
+                "$inc": {"balance": yield_reward},
+                "$set": {"last_staking_claim": now}
+            })
+            log_transaction("STAKING_RESERVE", username, yield_reward, "staking_yield")
+
+    return redirect(url_for("dashboard"))
+
+# --- PRIVATE ADMIN EXPLORER (Видим само за теб) ---
+@app.route("/admin/transactions")
+def admin_transactions():
+    if session.get("role") != "admin":
+        return redirect(url_for("dashboard"))
+    
+    recent_txs = list(tx_col.find().sort("timestamp", -1).limit(50))
+    return render_template("admin_txs.html", txs=recent_txs, symbol=COIN_SYMBOL)
 
 @app.route("/miner")
 def web_miner():
@@ -185,6 +261,7 @@ def submit_block():
             "timestamp": time.time()
         })
         users_col.update_one({"username": username}, {"$inc": {"balance": miner_reward}})
+        log_transaction("NETWORK_MINING", username, miner_reward, "reward")
         return jsonify({"status": "ACCEPTED", "message": f"Блокът е валидиран! Награда: {miner_reward} {COIN_SYMBOL}"})
     else:
         return jsonify({"status": "REJECTED", "message": "PoW грешен хеш!"}), 400
@@ -195,7 +272,7 @@ def admin_transfer():
         return redirect(url_for("dashboard"))
     
     target_user = request.form.get("target_user", "").strip()
-    source_type = request.form.get("source_type", "personal") # "marketing" или "personal"
+    source_type = request.form.get("source_type", "personal")
     try:
         amount = float(request.form.get("amount", 0))
     except ValueError:
@@ -205,18 +282,18 @@ def admin_transfer():
         return redirect(url_for("dashboard"))
 
     if source_type == "marketing":
-        # Проверка дали има достатъчно в маркетинг бюджета
         budget_state = system_col.find_one({"type": "budget"}) or {"marketing_budget": 0.0}
         if budget_state.get("marketing_budget", 0.0) >= amount:
             system_col.update_one({"type": "budget"}, {"$inc": {"marketing_budget": -amount}})
             users_col.update_one({"username": target_user}, {"$inc": {"balance": amount}})
+            log_transaction("MARKETING_BUDGET", target_user, amount, "admin_transfer")
     
     elif source_type == "personal":
-        # Превод от личния баланс на админа (vasko_creator)
         admin_data = users_col.find_one({"username": ADMIN_USERNAME}) or {}
         if admin_data.get("balance", 0.0) >= amount:
             users_col.update_one({"username": ADMIN_USERNAME}, {"$inc": {"balance": -amount}})
             users_col.update_one({"username": target_user}, {"$inc": {"balance": amount}})
+            log_transaction(ADMIN_USERNAME, target_user, amount, "admin_transfer")
 
     return redirect(url_for("dashboard"))
 
