@@ -10,10 +10,10 @@ from pymongo import MongoClient
 app = Flask(__name__)
 app.secret_key = "vasko_crypto_super_secret_key"
 
-# --- MONGO DB SETUP (Твоята база данни) ---
-MONGO_URI = "mongodb://grackiglas_db_user:4uWnBwi7koQORduz@90.154.220.51:27017/vasko_crypto?authSource=admin"
+# --- MONGO DB SETUP (Настроено за твоята база "coin") ---
+MONGO_URI = os.environ.get("MONGO_URI", "mongodb+srv://grackiglas_db_user:vaskoterziev@coin.ncslmc5.mongodb.net/coin?retryWrites=true&w=majority")
 client = MongoClient(MONGO_URI)
-db = client["vasko_crypto"]
+db = client["coin"]
 
 users_col = db["users"]
 sensors_col = db["sensor_history"]
