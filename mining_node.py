@@ -18,14 +18,16 @@ db = client["coin"]
 users_col = db["users"]
 sensors_col = db["sensor_history"]
 system_col = db["system_state"]
-tx_col = db["transactions"]  # Лог на всички транзакции
+tx_col = db["transactions"]
 
 COIN_NAME = "VASKO"
 COIN_SYMBOL = "VASK"
 ADMIN_USERNAME = "vasko_creator"  
 WELCOME_BONUS = 5.0  
-BASE_BLOCK_REWARD = 0.00005000
-STAKING_DAILY_RATE = 0.001  # 0.1% дневна лихва
+
+# 🎯 ФИКСИРАНА НАГРАДА ЗА MINING POOL
+POOL_BLOCK_REWARD = 1.0  # Точно 1 VASK на блок
+STAKING_DAILY_RATE = 0.001
 current_difficulty = "0000"
 
 MAX_SUPPLY = 2000000.0
@@ -46,7 +48,7 @@ def log_transaction(sender, receiver, amount, tx_type):
         "sender": sender,
         "receiver": receiver,
         "amount": amount,
-        "type": tx_type,  # 'reward', 'admin_transfer', 'staking_yield', 'welcome_bonus'
+        "type": tx_type,
         "timestamp": time.time()
     })
 
@@ -67,17 +69,17 @@ def home():
         return redirect(url_for("dashboard"))
     return render_template("index.html")
 
-# Публично API за началната страница (Live статус на мрежата)
 @app.route("/api/network_status")
 def api_network_status():
     last_block = sensors_col.find_one(sort=[("_id", -1)])
-    next_target = f"SYS_NODE_TEMP:24.5_TIME:{int(time.time())}"
+    next_target = f"POOL_NODE_TEMP:24.5_TIME:{int(time.time())}"
     return jsonify({
         "next_target": next_target,
         "difficulty": current_difficulty,
         "total_blocks": sensors_col.count_documents({}),
         "last_block_hash": last_block.get("block_hash", "N/A") if last_block else "Няма запечатани блокове",
-        "last_miner": last_block.get("validated_by", "N/A") if last_block else "N/A"
+        "last_miner": last_block.get("validated_by", "N/A") if last_block else "N/A",
+        "pool_reward": POOL_BLOCK_REWARD
     })
 
 @app.route("/register", methods=["GET", "POST"])
@@ -166,9 +168,9 @@ def dashboard():
                            total_blocks=total_blocks,
                            user_blocks=user_blocks,
                            marketing_budget=budget_state.get("marketing_budget", 0.0),
-                           max_supply=MAX_SUPPLY)
+                           max_supply=MAX_SUPPLY,
+                           pool_reward=POOL_BLOCK_REWARD)
 
-# --- STAKING ACTIONS ---
 @app.route("/staking/deposit", methods=["POST"])
 def staking_deposit():
     if "user" not in session:
@@ -201,7 +203,6 @@ def staking_claim():
         last_claim = user.get("last_staking_claim", time.time())
         now = time.time()
         
-        # Изчисляване на лихвата
         hours_passed = (now - last_claim) / 3600.0
         if hours_passed >= 1 and staked > 0:
             yield_reward = staked * (STAKING_DAILY_RATE / 24.0) * hours_passed
@@ -213,7 +214,6 @@ def staking_claim():
 
     return redirect(url_for("dashboard"))
 
-# --- PRIVATE ADMIN EXPLORER (Видим само за теб) ---
 @app.route("/admin/transactions")
 def admin_transactions():
     if session.get("role") != "admin":
@@ -234,7 +234,7 @@ def esp32_guides():
 
 @app.route("/get_job", methods=["GET"])
 def get_job():
-    target_payload = f"SYS_NODE_TEMP:24.5_TIME:{int(time.time())}"
+    target_payload = f"POOL_NODE_TEMP:24.5_TIME:{int(time.time())}"
     return jsonify({"target": target_payload, "difficulty": current_difficulty})
 
 @app.route("/submit_block", methods=["POST"])
@@ -253,7 +253,8 @@ def submit_block():
     result_hash = hashlib.sha256(combined.encode()).hexdigest()
 
     if result_hash.startswith(current_difficulty):
-        miner_reward = BASE_BLOCK_REWARD
+        # 🎯 Изплащаме НАГРАДАТА ОТ ТОЧНО 1.0 VASK
+        miner_reward = POOL_BLOCK_REWARD
         sensors_col.insert_one({
             "validated_by": username, 
             "raw_target": target_string, 
@@ -261,8 +262,8 @@ def submit_block():
             "timestamp": time.time()
         })
         users_col.update_one({"username": username}, {"$inc": {"balance": miner_reward}})
-        log_transaction("NETWORK_MINING", username, miner_reward, "reward")
-        return jsonify({"status": "ACCEPTED", "message": f"Блокът е валидиран! Награда: {miner_reward} {COIN_SYMBOL}"})
+        log_transaction("MINING_POOL", username, miner_reward, "pool_reward")
+        return jsonify({"status": "ACCEPTED", "message": f"🎉 БЛОКЪТ Е СПЕЧЕЛЕН! Награда от басейна: {miner_reward} {COIN_SYMBOL}"})
     else:
         return jsonify({"status": "REJECTED", "message": "PoW грешен хеш!"}), 400
 
