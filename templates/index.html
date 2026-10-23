@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VASKO (VASK) - IoT PoUW Ecosystem</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0d1117;
+            color: #c9d1d9;
+            font-family: Arial, sans-serif;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 40px;
+            background-color: #161b22;
+            border-bottom: 1px solid #30363d;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #58a6ff;
+        }
+        .nav-buttons a {
+            text-decoration: none;
+            padding: 10px 20px;
+            margin-left: 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        .btn-login {
+            color: #58a6ff;
+            border: 1px solid #58a6ff;
+        }
+        .btn-login:hover {
+            background-color: #58a6ff;
+            color: #0d1117;
+        }
+        .btn-register {
+            background-color: #238636;
+            color: white;
+        }
+        .btn-register:hover {
+            background-color: #2ea043;
+        }
+        .hero {
+            max-width: 800px;
+            margin: 60px auto;
+            text-align: center;
+            padding: 0 20px;
+        }
+        .hero h1 {
+            font-size: 42px;
+            color: #ffffff;
+            margin-bottom: 20px;
+        }
+        .hero p {
+            font-size: 18px;
+            line-height: 1.6;
+            color: #8b949e;
+            margin-bottom: 40px;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        .card {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: left;
+        }
+        .card h3 {
+            color: #58a6ff;
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">🪙 VASKO (VASK)</div>
+        <div class="nav-buttons">
+            <a href="/login" class="btn-login">Вход</a>
+            <a href="/register" class="btn-register">Регистрация</a>
+        </div>
+    </header>
+
+    <div class="hero">
+        <h1>Децентрализирана IoT Екосистема с Proof of Useful Work</h1>
+        <p>Добро пожаловать в света на VASKO! Нашата платформа свързва физически IoT устройства (като ESP32 сензори) с блокчейн мрежа, където изчислителната мощност не се губи, а валидира реални полезни данни от околната среда.</p>
+    </div>
+
+    <div class="features">
+        <div class="card">
+            <h3>🛡️ Сигурна мрежа</h3>
+            <p>Всички данни се съхраняват сигурно в облачна база данни с криптирани потребителски профили и уникални ключове за добив.</p>
+        </div>
+        <div class="card">
+            <h3>⚡ IoT Интеграция</h3>
+            <p>Свържете своите микроконтролери, копајте блокове с реални задачи и печелете криптовалута VASK напълно автоматично.</p>
+        </div>
+        <div class="card">
+            <h3>📊 Административен контрол</h3>
+            <p>Пълен контрол над транзакциите, следене на балансите и лесно управление на новите блокове през интуитивно табло.</p>
+        </div>
+    </div>
+
+</body>
+</html>
