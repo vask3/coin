@@ -205,7 +205,6 @@
             color: #38bdf8;
             word-break: break-all;
         }
-        /* Таблица за история */
         table {
             width: 100%;
             border-collapse: collapse;
@@ -241,7 +240,7 @@
             <p>Твоята децентрализирана IoT екосистема е активна. Следи мрежовите статистики и управлявай миньорите си.</p>
         </div>
 
-        <!-- Live Мрежови Статистики (Точка 2) -->
+        <!-- Live Мрежови Статистики -->
         <div class="stats-grid">
             <div class="stat-card">
                 <div style="color: var(--text-muted); font-size: 13px;">👥 Общо миньори</div>
@@ -277,7 +276,7 @@
             <div class="sensor-box">{{ last_sensor }}</div>
         </div>
 
-        <!-- История на личните изкопани блокове (Точка 3) -->
+        <!-- История на личните изкопани блокове -->
         <div class="card" style="margin-bottom: 25px;">
             <h3>📜 Последни блокове, валидирани от теб</h3>
             {% if user_blocks %}
@@ -304,14 +303,27 @@
             {% endif %}
         </div>
 
-        <!-- Административен панел (само за админ) -->
+        <!-- Административен панел с избор на източник (само за админ) -->
         {% if role == 'admin' %}
         <div class="card" style="border-color: rgba(245, 158, 11, 0.4); margin-bottom: 25px; background: linear-gradient(135deg, #131d31 0%, #1a1b26 100%);">
-            <h3 style="color: var(--warning);">🛡️ Административен панел</h3>
+            <h3 style="color: var(--warning);">🛡️ Административен панел & Бюджет</h3>
+            
+            <div style="display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted); margin-bottom: 15px; background: #0b0f19; padding: 10px; border-radius: 8px;">
+                <span>📢 Маркетинг фонд: <strong style="color: var(--accent-green);">{{ "%.2f"|format(marketing_budget) }} VASK</strong></span>
+                <span>💎 Макс. Емисия: <strong>{{ "%.0f"|format(max_supply) }} VASK</strong></span>
+            </div>
+
             <form action="/admin/transfer" method="POST">
                 <input type="text" name="target_user" class="form-control" placeholder="Потребителско име на получател" required>
                 <input type="number" step="0.00001" name="amount" class="form-control" placeholder="Сума за превод (VASK)" required>
-                <button type="submit" class="btn" style="background-color: var(--warning); color: #000;">Извърши превод</button>
+                
+                <label style="font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 6px;">Избери източник на средствата:</label>
+                <select name="source_type" class="form-control" style="cursor: pointer;">
+                    <option value="personal">👤 От моя личен баланс (vasko_creator)</option>
+                    <option value="marketing">📢 От Маркетинг / Airdrop бюджета</option>
+                </select>
+
+                <button type="submit" class="btn" style="background-color: var(--warning); color: #000; margin-top: 5px;">Извърши целеви превод</button>
             </form>
         </div>
         {% endif %}
