@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <title>ESP32 Firmware Guides - VASKO</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { color: #38bdf8; }
+        .back-btn { display: inline-block; margin-bottom: 20px; color: #38bdf8; text-decoration: none; }
+        .card { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #334155; }
+        h3 { color: #38bdf8; margin-top: 0; }
+        pre { background: #0f172a; padding: 15px; border-radius: 8px; overflow-x: auto; color: #34d399; font-size: 0.85rem; border: 1px solid #334155; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/dashboard" class="back-btn">&larr; Обратно към таблото</a>
+        <h1>ESP32 Hardware & IoT Firmware Guides</h1>
+        <p>Изберете софтуер за вашата ESP32 платка. Заменете <code>YOUR_WIFI_SSID</code>, <code>YOUR_USERNAME</code> и вашия <code>MINING_KEY</code> от таблото.</p>
+
+        <div class="card">
+            <h3>1. ESP32 Standard System Node (Без сензори)</h3>
+            <p>Следи вътрешните системни параметри на чипа (Free Heap, Uptime).</p>
+            <pre><code>#include &lt;WiFi.h&gt;
+#include &lt;HTTPClient.h&gt;
+#include &lt;sha256.h&gt;
+
+const char* ssid = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
+const char* serverSubmitUrl = "https://coin.vasko.blog/submit_block";
+
+String username = "YOUR_USERNAME";
+String miningKey = "YOUR_MINING_KEY";
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) { delay(500); }
+}
+
+void loop() {
+  if (WiFi.status() == WL_CONNECTED) {
+    unsigned long nonce = random(0, 2147483647);
+    String targetData = "ESP32_SYS_HEAP:" + String(ESP.getFreeHeap());
+    String combined = targetData + String(nonce);
+
+    Sha256.init();
+    Sha256.print(combined.c_str());
+    byte* hash = Sha256.result();
+    String hashStr = "";
+    for (int i = 0; i < 32; i++) { char buf[3]; sprintf(buf, "%02x", hash[i]); hashStr += buf; }
+
+    if (hashStr.startsWith("0000")) {
+      HTTPClient http;
+      http.begin(serverSubmitUrl);
+      http.addHeader("Content-Type", "application/json");
+      String jsonBody = "{\"username\":\"" + username + "\",\"mining_key\":\"" + miningKey + "\",\"nonce\":\"" + String(nonce) + "\",\"target\":\"" + targetData + "\"}";
+      http.POST(jsonBody);
+      http.end();
+      delay(5000);
+    }
+  }
+}</code></pre>
+        </div>
+
+        <div class="card">
+            <h3>2. ESP32 Climate Node (Температура и Влажност с DHT22)</h3>
+            <p>Свързване: DHT22 Data пин към GPIO 4</p>
+            <pre><code>#include &lt;WiFi.h&gt;
+#include &lt;HTTPClient.h&gt;
+#include &lt;sha256.h&gt;
+#include &lt;DHT.h&gt;
+
+#define DHTPIN 4
+#define DHTTYPE DHT22
+DHT dht(DHTPIN, DHTTYPE);
+
+const char* ssid = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
+const char* serverSubmitUrl = "https://coin.vasko.blog/submit_block";
+
+String username = "YOUR_USERNAME";
+String miningKey = "YOUR_MINING_KEY";
+
+void setup() {
+  Serial.begin(115200);
+  dht.begin();
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) { delay(500); }
+}
+
+void loop() {
+  float h = dht.readHumidity();
+  float t = dht.readTemperature();
+  if (isnan(h) || isnan(t)) { delay(2000); return; }
+
+  unsigned long nonce = random(0, 2147483647);
+  String targetData = "TEMP:" + String(t) + "_HUM:" + String(h);
+  String combined = targetData + String(nonce);
+
+  Sha256.init();
+  Sha256.print(combined.c_str());
+  byte* hash = Sha256.result();
+  String hashStr = "";
+  for (int i = 0; i < 32; i++) { char buf[3]; sprintf(buf, "%02x", hash[i]); hashStr += buf; }
+
+  if (hashStr.startsWith("0000")) {
+    HTTPClient http;
+    http.begin(serverSubmitUrl);
+    http.addHeader("Content-Type", "application/json");
+    String jsonBody = "{\"username\":\"" + username + "\",\"mining_key\":\"" + miningKey + "\",\"nonce\":\"" + String(nonce) + "\",\"target\":\"" + targetData + "\"}";
+    http.POST(jsonBody);
+    http.end();
+    delay(5000);
+  }
+}</code></pre>
+        </div>
+    </div>
+</body>
+</html>
