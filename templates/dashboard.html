@@ -79,7 +79,7 @@
         }
         .welcome-banner p {
             margin: 0;
-            color: var(--text-muted);
+            color: var::text-muted;
             font-size: 14px;
         }
         .grid {
@@ -244,18 +244,18 @@
             <p>Твоята децентрализирана IoT екосистема е активна. Следи мрежовите статистики и управлявай миньорите си.</p>
         </div>
 
-        <!-- Live Мрежови Статистики -->
+        <!-- Mining Pool Статистики -->
         <div class="stats-grid">
-            <div class="stat-card">
-                <div style="color: var(--text-muted); font-size: 13px;">👥 Общо миньори</div>
-                <div class="stat-value">{{ total_users }}</div>
+            <div class="stat-card" style="border-color: var(--accent-green);">
+                <div style="color: var(--text-muted); font-size: 13px;">🎯 Награда на Pool Блок</div>
+                <div class="stat-value" style="color: var(--accent-green);">{{ "%.1f"|format(pool_reward) }} VASK</div>
             </div>
             <div class="stat-card">
-                <div style="color: var(--text-muted); font-size: 13px;">⛓️ Общо блокове в мрежата</div>
+                <div style="color: var(--text-muted); font-size: 13px;">⛓️ Изкопани Pool Блокове</div>
                 <div class="stat-value">{{ total_blocks }}</div>
             </div>
             <div class="stat-card">
-                <div style="color: var(--text-muted); font-size: 13px;">⚡ Активна трудност</div>
+                <div style="color: var(--text-muted); font-size: 13px;">⚡ Трудност на Pool-а</div>
                 <div class="stat-value" style="color: var(--accent-blue);">{{ difficulty }}</div>
             </div>
         </div>
@@ -264,7 +264,7 @@
             <div class="card">
                 <h3>💰 Наличен баланс</h3>
                 <div class="balance-value">{{ "%.5f"|format(balance) }} <span style="font-size: 18px; color: var(--text-muted); font-weight: 400;">{{ symbol }}</span></div>
-                <p style="color: var(--text-muted); font-size: 13px; margin-top: 12px; margin-bottom: 0;">Печели се автоматично при валидиране.</p>
+                <p style="color: var(--text-muted); font-size: 13px; margin-top: 12px; margin-bottom: 0;">Печели се от успешно валидирани блокове в басейна.</p>
             </div>
 
             <div class="card">
