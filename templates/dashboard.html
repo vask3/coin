@@ -2,19 +2,20 @@
 <html lang="bg">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Табло - VASKO (VASK)</title>
     <style>
         :root {
-            --bg-main: #0d1117;
-            --bg-card: #161b22;
-            --border-color: #30363d;
-            --text-main: #c9d1d9;
-            --text-muted: #8b949e;
-            --accent-blue: #58a6ff;
-            --accent-green: #238636;
-            --accent-green-hover: #2ea043;
-            --danger: #f85149;
+            --bg-main: #0b0f19;
+            --bg-card: #131d31;
+            --border-color: #1e293b;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --accent-blue: #38bdf8;
+            --accent-green: #10b981;
+            --accent-purple: #8b5cf6;
+            --danger: #ef4444;
+            --warning: #f59e0b;
         }
         body {
             margin: 0;
@@ -22,45 +23,64 @@
             background-color: var(--bg-main);
             color: var(--text-main);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
         }
         .navbar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 15px 30px;
+            padding: 16px 24px;
             background-color: var(--bg-card);
             border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
         .navbar h1 {
             font-size: 20px;
             color: var(--accent-blue);
             margin: 0;
+            font-weight: 700;
         }
         .logout-btn {
-            background-color: transparent;
+            background-color: rgba(239, 68, 68, 0.1);
             border: 1px solid var(--danger);
             color: var(--danger);
             padding: 8px 16px;
-            border-radius: 6px;
+            border-radius: 8px;
             text-decoration: none;
-            font-weight: bold;
-            font-size: 14px;
-            transition: 0.2s;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s;
         }
         .logout-btn:hover {
             background-color: var(--danger);
             color: white;
         }
         .container {
-            max-width: 900px;
+            max-width: 1000px;
             margin: 30px auto;
             padding: 0 20px;
+            box-sizing: border-box;
         }
         .welcome-banner {
-            font-size: 24px;
-            font-weight: bold;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 25px 30px;
             margin-bottom: 25px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        .welcome-banner h2 {
+            margin: 0 0 8px 0;
+            font-size: 24px;
             color: #ffffff;
+        }
+        .welcome-banner p {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 14px;
         }
         .grid {
             display: grid;
@@ -71,39 +91,66 @@
         .card {
             background-color: var(--bg-card);
             border: 1px solid var(--border-color);
-            border-radius: 10px;
+            border-radius: 16px;
             padding: 25px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
         }
         .card h3 {
             margin-top: 0;
             color: var(--accent-blue);
-            font-size: 18px;
+            font-size: 16px;
             margin-bottom: 15px;
         }
         .balance-value {
-            font-size: 32px;
-            font-weight: bold;
-            color: #23d18b;
+            font-size: 34px;
+            font-weight: 800;
+            color: var(--accent-green);
+            letter-spacing: -1px;
         }
         .key-box {
-            background-color: var(--bg-main);
+            background-color: #0b0f19;
             border: 1px dashed var(--border-color);
-            padding: 10px 15px;
-            border-radius: 6px;
+            padding: 12px 16px;
+            border-radius: 8px;
             font-family: monospace;
             font-size: 18px;
-            color: #ff7b72;
+            color: #f43f5e;
             letter-spacing: 2px;
-            display: inline-block;
+            display: block;
+            text-align: center;
             margin-top: 10px;
+            word-break: break-all;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .stat-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 18px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 22px;
+            font-weight: bold;
+            color: #ffffff;
+            margin-top: 5px;
         }
         .form-control {
             width: 100%;
-            padding: 10px;
-            background-color: var(--bg-main);
+            padding: 12px;
+            background-color: #0b0f19;
             border: 1px solid var(--border-color);
-            border-radius: 6px;
+            border-radius: 8px;
             color: white;
             font-size: 14px;
             margin-bottom: 12px;
@@ -117,29 +164,66 @@
             background-color: var(--accent-green);
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            font-weight: bold;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 700;
             cursor: pointer;
             width: 100%;
-            transition: background 0.2s;
+            font-size: 15px;
         }
-        .btn:hover {
-            background-color: var(--accent-green-hover);
+        .action-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        @media (max-width: 600px) {
+            .action-grid {
+                grid-template-columns: 1fr;
+            }
         }
         .miner-link {
-            display: block;
-            text-align: center;
-            background-color: #1f6feb;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
             color: white;
             text-decoration: none;
-            padding: 12px;
-            border-radius: 6px;
-            font-weight: bold;
-            margin-top: 20px;
+            padding: 14px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 15px;
+            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);
         }
-        .miner-link:hover {
-            background-color: #388bfd;
+        .sensor-box {
+            background-color: #0b0f19;
+            border: 1px solid var(--border-color);
+            padding: 14px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 13px;
+            color: #38bdf8;
+            word-break: break-all;
+        }
+        /* Таблица за история */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        th {
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        td {
+            color: #e2e8f0;
+            font-family: monospace;
         }
     </style>
 </head>
@@ -151,45 +235,96 @@
     </div>
 
     <div class="container">
+        
         <div class="welcome-banner">
-            Здравей, {{ username }}! 👋
+            <h2>Добре дошъл обратно, {{ username }}! 👋</h2>
+            <p>Твоята децентрализирана IoT екосистема е активна. Следи мрежовите статистики и управлявай миньорите си.</p>
+        </div>
+
+        <!-- Live Мрежови Статистики (Точка 2) -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div style="color: var(--text-muted); font-size: 13px;">👥 Общо миньори</div>
+                <div class="stat-value">{{ total_users }}</div>
+            </div>
+            <div class="stat-card">
+                <div style="color: var(--text-muted); font-size: 13px;">⛓️ Общо блокове в мрежата</div>
+                <div class="stat-value">{{ total_blocks }}</div>
+            </div>
+            <div class="stat-card">
+                <div style="color: var(--text-muted); font-size: 13px;">⚡ Активна трудност</div>
+                <div class="stat-value" style="color: var(--accent-blue);">{{ difficulty }}</div>
+            </div>
         </div>
 
         <div class="grid">
-            <!-- Баланс и портфейл -->
-        <div class="card">
-            <h3>💰 Твоят портфейл</h3>
-            <div class="balance-value">{{ balance }} <span style="font-size: 18px; color: var(--text-muted);">{{ symbol }}</span></div>
-            <p style="color: var(--text-muted); font-size: 13px; margin-top: 15px;">Това е твоят натрупан баланс от валидирани блокове и бонуси.</p>
+            <div class="card">
+                <h3>💰 Наличен баланс</h3>
+                <div class="balance-value">{{ "%.5f"|format(balance) }} <span style="font-size: 18px; color: var(--text-muted); font-weight: 400;">{{ symbol }}</span></div>
+                <p style="color: var(--text-muted); font-size: 13px; margin-top: 12px; margin-bottom: 0;">Печели се автоматично при валидиране.</p>
+            </div>
+
+            <div class="card">
+                <h3>🔑 Твой API / Миньорски ключ</h3>
+                <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 8px; margin-top: 0;">Използвай го за уеб миньора или ESP32:</p>
+                <div class="key-box">{{ mining_key }}</div>
+            </div>
         </div>
 
-        <!-- Миньорски ключ -->
-        <div class="card">
-            <h3>🔑 Миньорски ключ (API Key)</h3>
-            <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 5px;">Използвай този ключ за твоите ESP32 устройства или уеб миньора:</p>
-            <div class="key-box">{{ mining_key }}</div>
-        </div>
+        <!-- Последно запечатан блок -->
+        <div class="card" style="margin-bottom: 25px;">
+            <h3>📡 Последен глобален блок в мрежата</h3>
+            <div class="sensor-box">{{ last_sensor }}</div>
         </div>
 
-        <!-- Административен панел (видими само за админ) -->
+        <!-- История на личните изкопани блокове (Точка 3) -->
+        <div class="card" style="margin-bottom: 25px;">
+            <h3>📜 Последни блокове, валидирани от теб</h3>
+            {% if user_blocks %}
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Цел / Данни</th>
+                                <th>Хеш на блока</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for block in user_blocks %}
+                            <tr>
+                                <td>{{ block.raw_target }}</td>
+                                <td style="color: var(--accent-green);">{{ block.block_hash[:16] }}...</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p style="color: var(--text-muted); font-size: 14px; margin: 0;">Все нямаш валидирани блокове. Стартирай уеб миньора, за да изкопаеш първия си блок!</p>
+            {% endif %}
+        </div>
+
+        <!-- Административен панел (само за админ) -->
         {% if role == 'admin' %}
-        <div class="card" style="border-color: #d29922; margin-bottom: 25px;">
-            <h3 style="color: #d29922;">🛡️ Административен панел</h3>
-            <form action="/admin/transfer" method="POST" onsubmit="handleTransfer(event)">
-                <input type="text" id="target_user" class="form-control" placeholder="Потребителско име на получател" required>
-                <input type="number" step="0.001" id="amount" class="form-control" placeholder="Сума за превод (VASK)" required>
-                <button type="submit" class="btn" style="background-color: #9e6a03;">Преведи монети</button>
+        <div class="card" style="border-color: rgba(245, 158, 11, 0.4); margin-bottom: 25px; background: linear-gradient(135deg, #131d31 0%, #1a1b26 100%);">
+            <h3 style="color: var(--warning);">🛡️ Административен панел</h3>
+            <form action="/admin/transfer" method="POST">
+                <input type="text" name="target_user" class="form-control" placeholder="Потребителско име на получател" required>
+                <input type="number" step="0.00001" name="amount" class="form-control" placeholder="Сума за превод (VASK)" required>
+                <button type="submit" class="btn" style="background-color: var(--warning); color: #000;">Извърши превод</button>
             </form>
         </div>
         {% endif %}
 
-        <!-- Бърз линк към уеб миньора -->
+        <!-- Бързи бутони -->
         <div class="card">
-            <h3>⚡ Уеб Миньор & Хардуер</h3>
-            <p style="color: var(--text-muted); font-size: 14px;">Можеш да стартираш уеб миньора директно през браузъра си или да разгледаш ръководствата за свързване на ESP32 сензори.</p>
-            <a href="/miner" class="miner-link">Отвори Уеб Миньора (Web Miner) 🚀</a>
-            <a href="/esp32_guides" class="miner-link" style="background-color: #30363d; margin-top: 10px;">ESP32 Ръководства 📖</a>
+            <h3>⚡ Управление и Хардуер</h3>
+            <div class="action-grid">
+                <a href="/miner" class="miner-link">🚀 Стартирай Уеб Миньор</a>
+                <a href="/esp32_guides" class="miner-link" style="background: linear-gradient(135deg, #334155 0%, #1e293b 100%); box-shadow: none;">📖 ESP32 Ръководства</a>
+            </div>
         </div>
+
     </div>
 
 </body>
