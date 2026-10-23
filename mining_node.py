@@ -8,7 +8,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from pymongo import MongoClient
 
 app = Flask(__name__)
-app.secret_key = "vasko_crypto_super_secret_key"
+app.secret_key = os.environ.get("SECRET_KEY", "vasko_crypto_super_secret_key")
 
 # --- MONGO DB SETUP ---
 MONGO_URI = os.environ.get("MONGO_URI")
@@ -17,7 +17,6 @@ db = client["coin"]
 
 users_col = db["users"]
 sensors_col = db["sensor_history"]
-promos_col = db["promo_codes"]
 
 COIN_NAME = "VASKO"
 COIN_SYMBOL = "VASK"
@@ -38,7 +37,6 @@ def is_disposable_email(email):
     domain = email.split("@")[-1].lower()
     return domain in DISPOSABLE_EMAIL_DOMAINS
 
-# Начална страница (Landing Page с обяснение на проекта)
 @app.route("/")
 def home():
     if "user" in session:
@@ -103,22 +101,21 @@ def dashboard():
         return redirect(url_for("login"))
     
     username = session["user"]
-    user_data = users_col.find_one({"username": username})
+    user_data = users_col.find_one({"username": username}) or {}
     
     last_sensor_doc = sensors_col.find_one(sort=[("_id", -1)])
-    sensor_display = f"{last_sensor_doc['raw_target']}" if last_sensor_doc else "Няма запечатани данни"
+    sensor_display = last_sensor_doc.get('raw_target', 'Няма данни') if last_sensor_doc else "Няма запечатани данни"
 
     return render_template("dashboard.html", 
                            username=username, 
                            balance=user_data.get("balance", 0.0), 
-                           mining_key=user_data.get("mining_key"),
+                           mining_key=user_data.get("mining_key", "N/A"),
                            role=user_data.get("role", "user"),
                            last_sensor=sensor_display, 
                            difficulty=current_difficulty,
                            symbol=COIN_SYMBOL,
                            coin_name=COIN_NAME)
 
-# Уеб миньор (miner.html)
 @app.route("/miner")
 def web_miner():
     return render_template("miner.html")
@@ -136,11 +133,11 @@ def get_job():
 
 @app.route("/submit_block", methods=["POST"])
 def submit_block():
-    data = request.json
+    data = request.json or {}
     username = data.get("username")
     mining_key = data.get("mining_key")
-    nonce = str(data.get("nonce"))
-    target_string = data.get("target")
+    nonce = str(data.get("nonce", ""))
+    target_string = data.get("target", "")
 
     user = users_col.find_one({"username": username})
     if not user or user.get("mining_key") != mining_key:
@@ -160,17 +157,18 @@ def submit_block():
 @app.route("/admin/transfer", methods=["POST"])
 def admin_transfer():
     if session.get("role") != "admin":
-        return jsonify({"status": "ERROR", "message": "Нямате права!"}), 403
-    data = request.json
-    target_user = data.get("target_user")
-    amount = float(data.get("amount", 0))
-    if amount <= 0: return jsonify({"status": "ERROR", "message": "Невалидна сума!"}), 400
+        return redirect(url_for("dashboard"))
     
-    user = users_col.find_one({"username": target_user})
-    if not user: return jsonify({"status": "ERROR", "message": "Потребителят не е намерен!"}), 404
-    
-    users_col.update_one({"username": target_user}, {"$inc": {"balance": amount}})
-    return jsonify({"status": "SUCCESS", "message": f"Преведени {amount} {COIN_SYMBOL} на {target_user}!"})
+    target_user = request.form.get("target_user", "").strip()
+    try:
+        amount = float(request.form.get("amount", 0))
+    except ValueError:
+        amount = 0.0
+
+    if amount > 0 and users_col.find_one({"username": target_user}):
+        users_col.update_one({"username": target_user}, {"$inc": {"balance": amount}})
+
+    return redirect(url_for("dashboard"))
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
