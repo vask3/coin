@@ -1,68 +1,89 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bg">
 <head>
-    <meta charset="UTF-8">
-    <title>Dashboard - VASKO Coin</title>
-    <style>
-        body { font-family: Arial, sans-serif; background: #121212; color: #fff; text-align: center; padding: 30px; }
-        .card { background: #1e1e1e; padding: 25px; border-radius: 12px; display: inline-block; width: 400px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); text-align: left; }
-        h1 { color: #00ffcc; text-align: center; }
-        .stat { font-size: 15px; margin: 12px 0; background: #2a2a2a; padding: 10px 14px; border-radius: 8px; word-break: break-all; }
-        button { padding: 12px; width: 100%; background: #ffcc00; color: #000; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; margin-top: 10px;}
-        .miner-btn { background: #00ffcc !important; }
-        .regen-btn { background: #ff9900 !important; font-size: 13px; padding: 8px; margin-top: 5px; }
-        a.logout { color: #ff4444; display: block; margin-top: 20px; text-decoration: none; text-align: center; }
-    </style>
+    <title>{{ coin_name }} Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
-<body>
-    <div class="card">
-        <h1>🚀 VASKO Network</h1>
-        <p style="text-align: center;">Welcome, <b>{{ username }}</b>!</p>
-        
-        <div class="stat">💰 <b>Balance:</b> <span style="color: #00ffcc; font-size: 18px;">{{ "%.8f"|format(balance) }} {{ symbol }}</span></div>
-        <div class="stat">
-            🔑 <b>Mining Key:</b> <span id="keyDisplay" style="color: #ffcc00; font-family: monospace; font-size: 16px;">{{ mining_key }}</span>
-            <button class="regen-btn" onclick="regenerateKey()">Regenerate New Key</button>
+<body style="font-family:sans-serif; padding: 20px;">
+    <h1>Добре дошли, {{ username }}!</h1>
+    <p>Баланс: <b id="balance">{{ balance }}</b> {{ symbol }}</p>
+    <p>Вашият миньорски ключ: <code>{{ mining_key }}</code></p>
+    {% if role == 'admin' %}
+        <div style="background:#eee; padding:10px; margin-bottom:10px;">
+            <h3>Админ панел</h3>
+            <input type="text" id="targetUser" placeholder="Потребител">
+            <input type="number" id="transferAmount" placeholder="Сума">
+            <button onclick="adminTransfer()">Преведи VASK</button>
         </div>
-        <div class="stat">📡 <b>Last Sensor:</b> {{ last_sensor }}</div>
-        <div class="stat">⚡ <b>Difficulty:</b> {{ difficulty }}</div>
-        
-        <hr style="border-color: #333; margin: 20px 0;">
-        
-        <h3>🎁 Free Faucet</h3>
-        <button onclick="getFaucet()">Claim 3 {{ symbol }}</button>
-        <p id="faucetMsg" style="margin-top: 8px; font-size: 13px; font-weight: bold; text-align: center;"></p>
+    {% endif %}
+    
+    <hr>
+    <h3>Уеб Миньор (PoUW)</h3>
+    <p>Трудност: {{ difficulty }}</p>
+    <label>Интензитет на CPU: <span id="cpuVal">50</span>%</label><br>
+    <input type="range" id="cpuSlider" min="10" max="100" value="50" oninput="document.getElementById('cpuVal').innerText=this.value"><br><br>
+    <button onclick="toggleMining()" id="mineBtn">Старт на миньора</button>
+    <p id="miningStatus">Статус: Спрян</p>
 
-        <hr style="border-color: #333; margin: 20px 0;">
-        
-        <h3>⛏️ Cloud Miner</h3>
-        <button class="miner-btn" onclick="window.location.href='/miner'">Open Web Miner</button>
-
-        <a class="logout" href="/logout">Logout</a>
-    </div>
+    <br><a href="/logout">Изход</a>
 
     <script>
-        function getFaucet() {
-            fetch('/faucet', { method: 'POST' })
-            .then(res => res.json())
-            .then(data => {
-                document.getElementById('faucetMsg').innerText = data.message;
-                if(data.status === 'SUCCESS') setTimeout(() => location.reload(), 2000);
-            });
+        let mining = false;
+        let username = "{{ username }}";
+        let miningKey = "{{ mining_key }}";
+
+        function toggleMining() {
+            mining = !mining;
+            document.getElementById("mineBtn").innerText = mining ? "Спри миньора" : "Старт на миньора";
+            document.getElementById("miningStatus").innerText = mining ? "Статус: Копае..." : "Статус: Спрян";
+            if (mining) mineLoop();
         }
 
-        function regenerateKey() {
-            if(!confirm("Are you sure? This will invalidate your old mining key immediately!")) return;
-            fetch('/regenerate_key', { method: 'POST' })
-            .then(res => res.json())
-            .then(data => {
-                if(data.status === 'SUCCESS') {
-                    document.getElementById('keyDisplay').innerText = data.new_key;
-                    alert("New mining key generated successfully!");
-                } else {
-                    alert("Error: " + data.message);
+        async function mineLoop() {
+            while (mining) {
+                let res = await fetch('/get_job');
+                let data = await res.json();
+                let target = data.target;
+                let difficulty = data.difficulty;
+
+                let nonce = 0;
+                let hash = "";
+
+                let intensity = document.getElementById("cpuSlider").value;
+                let maxIterations = intensity * 50;
+
+                for (let i = 0; i < maxIterations; i++) {
+                    nonce = Math.floor(Math.random() * 10000000);
+                    let combined = target + nonce;
+                    hash = CryptoJS.SHA256(combined).toString();
+                    if (hash.startsWith(difficulty)) {
+                        let subRes = await fetch('/submit_block', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({username, mining_key: miningKey, nonce, target})
+                        });
+                        let subData = await subRes.json();
+                        alert(subData.message);
+                        location.reload();
+                        return;
+                    }
                 }
+                let sleepTime = 101 - intensity;
+                await new Promise(r => setTimeout(r, sleepTime));
+            }
+        }
+
+        async function adminTransfer() {
+            let targetUser = document.getElementById("targetUser").value;
+            let amount = document.getElementById("transferAmount").value;
+            let res = await fetch('/admin/transfer', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({target_user: targetUser, amount})
             });
+            let data = await res.json();
+            alert(data.message);
+            location.reload();
         }
     </script>
 </body>
