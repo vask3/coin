@@ -170,6 +170,10 @@
             cursor: pointer;
             width: 100%;
             font-size: 15px;
+            transition: opacity 0.2s;
+        }
+        .btn:hover {
+            opacity: 0.9;
         }
         .action-grid {
             display: grid;
@@ -270,6 +274,25 @@
             </div>
         </div>
 
+        <!-- Staking Секция -->
+        <div class="card" style="margin-bottom: 25px;">
+            <h3>🌱 Staking / Пасивен доход</h3>
+            <p style="color: var(--text-muted); font-size: 13px; margin-top: 0;">Заключи монети за стейкинг и печели автоматична дневна лихва (0.1% на ден).</p>
+            
+            <div style="background: #0b0f19; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 14px;">
+                Заключени за стейкинг: <strong style="color: var(--accent-green);">{{ "%.5f"|format(staked_balance) }} {{ symbol }}</strong>
+            </div>
+
+            <form action="/staking/deposit" method="POST" style="margin-bottom: 10px;">
+                <input type="number" step="0.00001" name="amount" class="form-control" placeholder="Сума за стейкинг" required>
+                <button type="submit" class="btn">Депозирай в Staking</button>
+            </form>
+
+            <form action="/staking/claim" method="POST">
+                <button type="submit" class="btn" style="background-color: var(--accent-blue); color: #000;">Прибери натрупаната лихва</button>
+            </form>
+        </div>
+
         <!-- Последно запечатан блок -->
         <div class="card" style="margin-bottom: 25px;">
             <h3>📡 Последен глобален блок в мрежата</h3>
@@ -325,6 +348,8 @@
 
                 <button type="submit" class="btn" style="background-color: var(--warning); color: #000; margin-top: 5px;">Извърши целеви превод</button>
             </form>
+
+            <a href="/admin/transactions" style="display: inline-block; margin-top: 15px; color: var(--accent-blue); text-decoration: none; font-size: 13px; font-weight: bold;">🔒 Отвори частен регистър на транзакциите →</a>
         </div>
         {% endif %}
 
