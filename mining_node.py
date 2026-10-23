@@ -38,18 +38,19 @@ def is_disposable_email(email):
     domain = email.split("@")[-1].lower()
     return domain in DISPOSABLE_EMAIL_DOMAINS
 
+# Начална страница (Landing Page с обяснение на проекта)
 @app.route("/")
 def home():
     if "user" in session:
         return redirect(url_for("dashboard"))
-    return redirect(url_for("login"))
+    return render_template("index.html")
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
-        username = request.form.get("username").strip()
+        username = request.form.get("username", "").strip()
         email = request.form.get("email", "").strip()
-        password = request.form.get("password")
+        password = request.form.get("password", "")
 
         if not username or not password:
             return render_template("register.html", error="Всички полета са задължителни!")
@@ -80,8 +81,8 @@ def register():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form.get("username").strip()
-        password = request.form.get("password")
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
         user = users_col.find_one({"username": username})
         if user and check_password_hash(user["password"], password):
             session["user"] = username
@@ -94,7 +95,7 @@ def login():
 @app.route("/logout")
 def logout():
     session.clear()
-    return redirect(url_for("login"))
+    return redirect(url_for("home"))
 
 @app.route("/dashboard")
 def dashboard():
@@ -117,7 +118,7 @@ def dashboard():
                            symbol=COIN_SYMBOL,
                            coin_name=COIN_NAME)
 
-# Отделна страница за уеб миньора (miner.html)
+# Уеб миньор (miner.html)
 @app.route("/miner")
 def web_miner():
     return render_template("miner.html")
