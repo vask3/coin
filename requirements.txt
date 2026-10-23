@@ -3,3 +3,5 @@ requests
 werkzeug
 gunicorn
 pymongo[srv]
+dnspython
+certifi
