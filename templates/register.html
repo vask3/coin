@@ -1,27 +1,16 @@
 <!DOCTYPE html>
 <html lang="bg">
-<head>
-    <meta charset="UTF-8">
-    <title>Регистрация - VASKO Coin</title>
-    <style>
-        body { font-family: Arial, sans-serif; background: #121212; color: #fff; text-align: center; padding: 50px; }
-        .card { background: #1e1e1e; padding: 30px; border-radius: 12px; display: inline-block; width: 320px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        h1 { color: #00ffcc; }
-        input, button { padding: 12px; margin: 10px 0; width: 90%; border-radius: 6px; border: none; font-size: 15px; }
-        button { background: #ffcc00; color: #000; font-weight: bold; cursor: pointer; }
-        a { color: #00ffcc; text-decoration: none; }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <h1>📝 Регистрация</h1>
-        {% if error %}<p style="color: #ff4444;">{{ error }}</p>{% endif %}
-        <form method="POST">
-            <input type="text" name="username" placeholder="Избери име" required><br>
-            <input type="password" name="password" placeholder="Избери парола" required><br>
-            <button type="submit">Създай профил</button>
-        </form>
-        <p>Вече имаш профил? <a href="/login">Влез тук</a></p>
-    </div>
+<head><title>Регистрация - VASKO</title></head>
+<body style="font-family:sans-serif; text-align:center; padding-top:50px;">
+    <h2>Регистрация в VASKO</h2>
+    <p style="color:green;">Получавате <b>5 VASK</b> бонус при регистрация!</p>
+    {% if error %}<p style="color:red;">{{ error }}</p>{% endif %}
+    <form method="POST">
+        <input type="text" name="username" placeholder="Потребителско име" required><br><br>
+        <input type="email" name="email" placeholder="Имейл адрес" required><br><br>
+        <input type="password" name="password" placeholder="Парола" required><br><br>
+        <button type="submit">Регистрация</button>
+    </form>
+    <p>Вече имате акаунт? <a href="/login">Вход</a></p>
 </body>
 </html>
