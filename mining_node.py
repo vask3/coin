@@ -25,7 +25,6 @@ COIN_SYMBOL = "VASK"
 ADMIN_USERNAME = "vasko_creator"  
 WELCOME_BONUS = 5.0  
 
-BLOCK_REWARD = 0.05 
 STAKING_DAILY_RATE = 0.001
 
 MAX_SUPPLY = 2000000.0
@@ -39,7 +38,7 @@ def init_system_budget():
             "marketing_budget": MARKETING_RESERVE_INIT,
             "mining_pool_budget": RESERVE_INIT,
             "total_minted": 0.0,
-            "difficulty": "000"  рена начална трудност (3 нули)
+            "difficulty": "000"  # Начална трудност (3 нули)
         })
 
 init_system_budget()
@@ -48,21 +47,31 @@ def get_current_difficulty():
     state = system_col.find_one({"type": "budget"})
     return state.get("difficulty", "000") if state else "000"
 
+def calculate_dynamic_reward():
+    """ Изчислява малка, динамична награда на база трудност и намерена 'жила' (~0.0003 VASK) """
+    diff_length = len(get_current_difficulty())
+    # Базова малка награда (~0.0003) с коeфициент спрямо трудността
+    base_reward = 0.00025 + (diff_length * 0.00002) 
+    # Добавяме лек микро-вариационен шанс (намиране на малко по-богата 'жила' в мината)
+    jitter = random.uniform(-0.00002, 0.00003)
+    dynamic_reward = round(max(0.0001, base_reward + jitter), 6)
+    return dynamic_reward
+
 def adjust_difficulty():
-    """Динамична корекция на трудността на базата на времето за копаене"""
+    """ Динамична корекция на трудността на базата на времето за копаене """
     recent_blocks = list(sensors_col.find().sort("timestamp", -1).limit(4))
     if len(recent_blocks) >= 4:
         t_newest = recent_blocks[0]["timestamp"]
         t_oldest = recent_blocks[3]["timestamp"]
-        avg_time = (t_newest - t_oldest) / 3.0  # Средно време за блок
+        avg_time = (t_newest - t_oldest) / 3.0
         
         current_diff = get_current_difficulty()
         
-        # Ако копаят прекалено бързо (под 6 секунди на блок), вдигаме трудността
+        # Ако се копае твърде бързо (под 6 секунди), качваме трудността
         if avg_time < 6.0 and len(current_diff) < 6:
             new_diff = current_diff + "0"
             system_col.update_one({"type": "budget"}, {"$set": {"difficulty": new_diff}})
-        # Ако копаят прекалено бавно (над 25 секунди), я улесняваме
+        # Ако се копае твърде бавно (над 25 секунди), намаляваме трудността
         elif avg_time > 25.0 and len(current_diff) > 2:
             new_diff = current_diff[:-1]
             system_col.update_one({"type": "budget"}, {"$set": {"difficulty": new_diff}})
@@ -97,13 +106,14 @@ def home():
 def api_network_status():
     last_block = sensors_col.find_one(sort=[("_id", -1)])
     next_target = f"IOT_NODE_{random.randint(1000,9999)}_TEMP:{random.uniform(18.5, 38.2):.2f}_TIME:{int(time.time())}"
+    current_reward = calculate_dynamic_reward()
     return jsonify({
         "next_target": next_target,
         "difficulty": get_current_difficulty(),
         "total_blocks": sensors_col.count_documents({}),
         "last_block_hash": last_block.get("block_hash", "N/A") if last_block else "Няма запечатани блокове",
         "last_miner": last_block.get("validated_by", "N/A") if last_block else "N/A",
-        "block_reward": BLOCK_REWARD
+        "block_reward": current_reward
     })
 
 @app.route("/register", methods=["GET", "POST"])
@@ -178,6 +188,8 @@ def dashboard():
     user_blocks = list(sensors_col.find({"validated_by": username}).sort("timestamp", -1).limit(5))
     budget_state = system_col.find_one({"type": "budget"}) or {"marketing_budget": 0.0, "mining_pool_budget": 0.0}
 
+    est_reward = calculate_dynamic_reward()
+
     return render_template("dashboard.html", 
                            username=username, 
                            balance=user_data.get("balance", 0.0), 
@@ -194,8 +206,8 @@ def dashboard():
                            marketing_budget=budget_state.get("marketing_budget", 0.0),
                            mining_pool_budget=budget_state.get("mining_pool_budget", 0.0),
                            max_supply=MAX_SUPPLY,
-                           block_reward=BLOCK_REWARD,
-                           pool_reward=BLOCK_REWARD)
+                           block_reward=est_reward,
+                           pool_reward=est_reward)
 
 @app.route("/staking/deposit", methods=["POST"])
 def staking_deposit():
@@ -283,17 +295,19 @@ def submit_block():
 
     current_diff = get_current_difficulty()
     if result_hash.startswith(current_diff):
-        miner_reward = BLOCK_REWARD
+        # Пресмятаме ДИНАМИЧНАТА награда за изкопания блок
+        miner_reward = calculate_dynamic_reward()
+        
         sensors_col.insert_one({
             "validated_by": username, 
             "raw_target": target_string, 
             "block_hash": result_hash, 
+            "reward": miner_reward,
             "timestamp": time.time()
         })
         users_col.update_one({"username": username}, {"$inc": {"balance": miner_reward}})
         log_transaction("NETWORK_MINING", username, miner_reward, "reward")
         
-        # Автоматично адаптиране на трудността след успешен блок
         adjust_difficulty()
 
         return jsonify({"status": "ACCEPTED", "message": f"🎉 Успешен блок! Награда: {miner_reward} {COIN_SYMBOL}"})
