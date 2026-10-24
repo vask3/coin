@@ -25,21 +25,21 @@ COIN_SYMBOL = "VASK"
 ADMIN_USERNAME = "vasko_creator"  
 WELCOME_BONUS = 5.0  
 
-# Награда за уеб миньора (по-малка, за да е балансирано)
-WEB_MINER_REWARD = 0.05 
+# Награда за блок в мрежата
+BLOCK_REWARD = 0.05 
 STAKING_DAILY_RATE = 0.001
 current_difficulty = "0000"
 
 MAX_SUPPLY = 2000000.0
 MARKETING_RESERVE_INIT = 200000.0
-MINING_POOL_RESERVE_INIT = 800000.0
+RESERVE_INIT = 800000.0
 
 def init_system_budget():
     if not system_col.find_one({"type": "budget"}):
         system_col.insert_one({
             "type": "budget",
             "marketing_budget": MARKETING_RESERVE_INIT,
-            "mining_pool_budget": MINING_POOL_RESERVE_INIT,
+            "mining_pool_budget": RESERVE_INIT, # Запазваме го като вътрешен резерв
             "total_minted": 0.0
         })
 
@@ -74,7 +74,6 @@ def home():
 @app.route("/api/network_status")
 def api_network_status():
     last_block = sensors_col.find_one(sort=[("_id", -1)])
-    # Динамичен таргет за разнообразие
     next_target = f"IOT_SENSOR_NODE_{random.randint(100,999)}_TEMP:{random.uniform(20.0, 35.0):.2f}_TIME:{int(time.time())}"
     return jsonify({
         "next_target": next_target,
@@ -82,7 +81,7 @@ def api_network_status():
         "total_blocks": sensors_col.count_documents({}),
         "last_block_hash": last_block.get("block_hash", "N/A") if last_block else "Няма запечатани блокове",
         "last_miner": last_block.get("validated_by", "N/A") if last_block else "N/A",
-        "pool_reward": WEB_MINER_REWARD
+        "block_reward": BLOCK_REWARD
     })
 
 @app.route("/register", methods=["GET", "POST"])
@@ -173,7 +172,7 @@ def dashboard():
                            marketing_budget=budget_state.get("marketing_budget", 0.0),
                            mining_pool_budget=budget_state.get("mining_pool_budget", 0.0),
                            max_supply=MAX_SUPPLY,
-                           pool_reward=WEB_MINER_REWARD)
+                           block_reward=BLOCK_REWARD)
 
 @app.route("/staking/deposit", methods=["POST"])
 def staking_deposit():
@@ -238,7 +237,6 @@ def esp32_guides():
 
 @app.route("/get_job", methods=["GET"])
 def get_job():
-    # Напълно разнообразни сензорни данни за всяка задача
     sensor_id = random.randint(1000, 9999)
     temp = round(random.uniform(18.5, 38.2), 2)
     humidity = round(random.uniform(30.0, 85.0), 1)
@@ -261,7 +259,7 @@ def submit_block():
     result_hash = hashlib.sha256(combined.encode()).hexdigest()
 
     if result_hash.startswith(current_difficulty):
-        miner_reward = WEB_MINER_REWARD
+        miner_reward = BLOCK_REWARD
         sensors_col.insert_one({
             "validated_by": username, 
             "raw_target": target_string, 
@@ -269,7 +267,7 @@ def submit_block():
             "timestamp": time.time()
         })
         users_col.update_one({"username": username}, {"$inc": {"balance": miner_reward}})
-        log_transaction("MINING_POOL", username, miner_reward, "pool_reward")
+        log_transaction("NETWORK_MINING", username, miner_reward, "reward")
         return jsonify({"status": "ACCEPTED", "message": f"🎉 Успешен блок! Награда: {miner_reward} {COIN_SYMBOL}"})
     else:
         return jsonify({"status": "REJECTED", "message": "PoW грешен хеш!"}), 400
@@ -289,9 +287,7 @@ def admin_transfer():
     if amount <= 0:
         return redirect(url_for("dashboard"))
 
-    # Двупосочни преводи (Към потребител ИЛИ обратно към фондовете)
     if target_user == "marketing_budget":
-        # Връщане/добавяне към маркетинг бюджета от личния баланс на админа
         admin_data = users_col.find_one({"username": ADMIN_USERNAME}) or {}
         if source_type == "personal" and admin_data.get("balance", 0.0) >= amount:
             users_col.update_one({"username": ADMIN_USERNAME}, {"$inc": {"balance": -amount}})
@@ -299,15 +295,13 @@ def admin_transfer():
             log_transaction(ADMIN_USERNAME, "MARKETING_BUDGET", amount, "fund_refill")
 
     elif target_user == "mining_pool":
-        # Връщане/добавяне към mining pool бюджета
         admin_data = users_col.find_one({"username": ADMIN_USERNAME}) or {}
         if source_type == "personal" and admin_data.get("balance", 0.0) >= amount:
             users_col.update_one({"username": ADMIN_USERNAME}, {"$inc": {"balance": -amount}})
             system_col.update_one({"type": "budget"}, {"$inc": {"mining_pool_budget": amount}})
-            log_transaction(ADMIN_USERNAME, "MINING_POOL_RESERVE", amount, "fund_refill")
+            log_transaction(ADMIN_USERNAME, "RESERVE_FUND", amount, "fund_refill")
 
     else:
-        # Стандартен превод към обикновен потребител
         if not users_col.find_one({"username": target_user}):
             return redirect(url_for("dashboard"))
 
