@@ -19,6 +19,7 @@ users_col = db["users"]
 sensors_col = db["sensor_history"]
 system_col = db["system_state"]
 tx_col = db["transactions"]
+promo_col = db["promo_codes"]
 
 COIN_NAME = "VASKO"
 COIN_SYMBOL = "VASK"
@@ -26,6 +27,7 @@ ADMIN_USERNAME = "vasko_creator"
 WELCOME_BONUS = 5.0  
 
 STAKING_DAILY_RATE = 0.001
+NETWORK_FEE_PERCENT = 0.01  # 1% Gas Fee
 
 MAX_SUPPLY = 2000000.0
 MARKETING_RESERVE_INIT = 200000.0
@@ -37,8 +39,9 @@ def init_system_budget():
             "type": "budget",
             "marketing_budget": MARKETING_RESERVE_INIT,
             "mining_pool_budget": RESERVE_INIT,
+            "maintenance_fund": 0.0,  # Фонд Поддръжка за събиране на Gas Fee
             "total_minted": 0.0,
-            "difficulty": "000"  # Начална трудност (3 нули)
+            "difficulty": "000"
         })
 
 init_system_budget()
@@ -48,17 +51,12 @@ def get_current_difficulty():
     return state.get("difficulty", "000") if state else "000"
 
 def calculate_dynamic_reward():
-    """ Изчислява малка, динамична награда на база трудност и намерена 'жила' (~0.0003 VASK) """
     diff_length = len(get_current_difficulty())
-    # Базова малка награда (~0.0003) с коeфициент спрямо трудността
     base_reward = 0.00025 + (diff_length * 0.00002) 
-    # Добавяме лек микро-вариационен шанс (намиране на малко по-богата 'жила' в мината)
     jitter = random.uniform(-0.00002, 0.00003)
-    dynamic_reward = round(max(0.0001, base_reward + jitter), 6)
-    return dynamic_reward
+    return round(max(0.0001, base_reward + jitter), 6)
 
 def adjust_difficulty():
-    """ Динамична корекция на трудността на базата на времето за копаене """
     recent_blocks = list(sensors_col.find().sort("timestamp", -1).limit(4))
     if len(recent_blocks) >= 4:
         t_newest = recent_blocks[0]["timestamp"]
@@ -66,12 +64,9 @@ def adjust_difficulty():
         avg_time = (t_newest - t_oldest) / 3.0
         
         current_diff = get_current_difficulty()
-        
-        # Ако се копае твърде бързо (под 6 секунди), качваме трудността
         if avg_time < 6.0 and len(current_diff) < 6:
             new_diff = current_diff + "0"
             system_col.update_one({"type": "budget"}, {"$set": {"difficulty": new_diff}})
-        # Ако се копае твърде бавно (над 25 секунди), намаляваме трудността
         elif avg_time > 25.0 and len(current_diff) > 2:
             new_diff = current_diff[:-1]
             system_col.update_one({"type": "budget"}, {"$set": {"difficulty": new_diff}})
@@ -106,14 +101,13 @@ def home():
 def api_network_status():
     last_block = sensors_col.find_one(sort=[("_id", -1)])
     next_target = f"IOT_NODE_{random.randint(1000,9999)}_TEMP:{random.uniform(18.5, 38.2):.2f}_TIME:{int(time.time())}"
-    current_reward = calculate_dynamic_reward()
     return jsonify({
         "next_target": next_target,
         "difficulty": get_current_difficulty(),
         "total_blocks": sensors_col.count_documents({}),
         "last_block_hash": last_block.get("block_hash", "N/A") if last_block else "Няма запечатани блокове",
         "last_miner": last_block.get("validated_by", "N/A") if last_block else "N/A",
-        "block_reward": current_reward
+        "block_reward": calculate_dynamic_reward()
     })
 
 @app.route("/register", methods=["GET", "POST"])
@@ -186,9 +180,7 @@ def dashboard():
     total_users = users_col.count_documents({})
     total_blocks = sensors_col.count_documents({})
     user_blocks = list(sensors_col.find({"validated_by": username}).sort("timestamp", -1).limit(5))
-    budget_state = system_col.find_one({"type": "budget"}) or {"marketing_budget": 0.0, "mining_pool_budget": 0.0}
-
-    est_reward = calculate_dynamic_reward()
+    budget_state = system_col.find_one({"type": "budget"}) or {"marketing_budget": 0.0, "maintenance_fund": 0.0}
 
     return render_template("dashboard.html", 
                            username=username, 
@@ -204,59 +196,159 @@ def dashboard():
                            total_blocks=total_blocks,
                            user_blocks=user_blocks,
                            marketing_budget=budget_state.get("marketing_budget", 0.0),
-                           mining_pool_budget=budget_state.get("mining_pool_budget", 0.0),
+                           maintenance_fund=budget_state.get("maintenance_fund", 0.0),
                            max_supply=MAX_SUPPLY,
-                           block_reward=est_reward,
-                           pool_reward=est_reward)
+                           block_reward=calculate_dynamic_reward())
 
-@app.route("/staking/deposit", methods=["POST"])
-def staking_deposit():
+# --- Превод между потребители с 1% Gas Fee към Фонд Поддръжка ---
+@app.route("/transfer", methods=["POST"])
+def transfer():
     if "user" not in session:
         return redirect(url_for("login"))
     
-    username = session["user"]
+    sender = session["user"]
+    recipient = request.form.get("recipient", "").strip()
     try:
         amount = float(request.form.get("amount", 0))
     except ValueError:
         amount = 0.0
 
+    if amount <= 0 or sender == recipient:
+        return redirect(url_for("dashboard"))
+
+    sender_doc = users_col.find_one({"username": sender})
+    recipient_doc = users_col.find_one({"username": recipient})
+
+    if sender_doc and recipient_doc and sender_doc.get("balance", 0.0) >= amount:
+        fee = round(amount * NETWORK_FEE_PERCENT, 6)
+        net_amount = amount - fee
+
+        # Изваждане от изпращача
+        users_col.update_one({"username": sender}, {"$inc": {"balance": -amount}})
+        # Добавяне към получателя
+        users_col.update_one({"username": recipient}, {"$inc": {"balance": net_amount}})
+        # 1% Gas Fee отива във ФОНД ПОДДРЪЖКА
+        system_col.update_one({"type": "budget"}, {"$inc": {"maintenance_fund": fee}})
+
+        log_transaction(sender, recipient, net_amount, "user_transfer")
+        if fee > 0:
+            log_transaction(sender, "MAINTENANCE_FUND", fee, "network_gas_fee")
+
+    return redirect(url_for("dashboard"))
+
+# --- Активиране на промокод с гъвкав източник ---
+@app.route("/redeem_promo", methods=["POST"])
+def redeem_promo():
+    if "user" not in session:
+        return redirect(url_for("login"))
+    
+    username = session["user"]
+    code_input = request.form.get("promo_code", "").strip().upper()
+    
+    promo = promo_col.find_one({"code": code_input, "active": True})
+    if promo:
+        if username in promo.get("used_by", []):
+            return redirect(url_for("dashboard"))
+
+        source = promo.get("source", "personal")
+        reward_amount = promo.get("reward", 0.0)
+
+        if source == "marketing":
+            budget_state = system_col.find_one({"type": "budget"}) or {}
+            if budget_state.get("marketing_budget", 0.0) >= reward_amount:
+                system_col.update_one({"type": "budget"}, {"$inc": {"marketing_budget": -reward_amount}})
+                users_col.update_one({"username": username}, {"$inc": {"balance": reward_amount}})
+                promo_col.update_one({"code": code_input}, {"$push": {"used_by": username}})
+                log_transaction("MARKETING_BUDGET", username, reward_amount, f"PROMO_CODE ({code_input})")
+        else: # personal
+            admin_doc = users_col.find_one({"username": ADMIN_USERNAME})
+            if admin_doc and admin_doc.get("balance", 0.0) >= reward_amount:
+                users_col.update_one({"username": ADMIN_USERNAME}, {"$inc": {"balance": -reward_amount}})
+                users_col.update_one({"username": username}, {"$inc": {"balance": reward_amount}})
+                promo_col.update_one({"code": code_input}, {"$push": {"used_by": username}})
+                log_transaction(ADMIN_USERNAME, username, reward_amount, f"PROMO_CODE ({code_input})")
+
+    return redirect(url_for("dashboard"))
+
+# --- Админ създава промокод с избор на източник ---
+@app.route("/admin/create_promo", methods=["POST"])
+def admin_create_promo():
+    if session.get("role") != "admin":
+        return redirect(url_for("dashboard"))
+    
+    code = request.form.get("code", "").strip().upper()
+    source = request.form.get("source", "personal")
+    try:
+        reward = float(request.form.get("reward", 0))
+    except ValueError:
+        reward = 0.0
+
+    if code and reward > 0:
+        promo_col.insert_one({
+            "code": code,
+            "reward": reward,
+            "source": source,
+            "active": True,
+            "created_at": time.time(),
+            "used_by": []
+        })
+
+    return redirect(url_for("dashboard"))
+
+# --- Админ редактира потребител ---
+@app.route("/admin/edit_user", methods=["POST"])
+def admin_edit_user():
+    if session.get("role") != "admin":
+        return redirect(url_for("dashboard"))
+
+    target_user = request.form.get("target_user", "").strip()
+    try:
+        new_balance = float(request.form.get("balance", 0))
+    except ValueError:
+        new_balance = None
+
+    if target_user and new_balance is not None:
+        users_col.update_one({"username": target_user}, {"$set": {"balance": new_balance}})
+        log_transaction("ADMIN_OVERRIDE", target_user, new_balance, "balance_adjustment")
+
+    return redirect(url_for("dashboard"))
+
+@app.route("/staking/deposit", methods=["POST"])
+def staking_deposit():
+    if "user" not in session:
+        return redirect(url_for("login"))
+    username = session["user"]
+    try:
+        amount = float(request.form.get("amount", 0))
+    except ValueError:
+        amount = 0.0
     user = users_col.find_one({"username": username})
     if user and amount > 0 and user.get("balance", 0.0) >= amount:
-        users_col.update_one({"username": username}, {
-            "$inc": {"balance": -amount, "staked_balance": amount}
-        })
+        users_col.update_one({"username": username}, {"$inc": {"balance": -amount, "staked_balance": amount}})
         log_transaction(username, "STAKING_POOL", amount, "staking_deposit")
-
     return redirect(url_for("dashboard"))
 
 @app.route("/staking/claim", methods=["POST"])
 def staking_claim():
     if "user" not in session:
         return redirect(url_for("login"))
-    
     username = session["user"]
     user = users_col.find_one({"username": username})
     if user:
         staked = user.get("staked_balance", 0.0)
         last_claim = user.get("last_staking_claim", time.time())
         now = time.time()
-        
         hours_passed = (now - last_claim) / 3600.0
         if hours_passed >= 1 and staked > 0:
             yield_reward = staked * (STAKING_DAILY_RATE / 24.0) * hours_passed
-            users_col.update_one({"username": username}, {
-                "$inc": {"balance": yield_reward},
-                "$set": {"last_staking_claim": now}
-            })
+            users_col.update_one({"username": username}, {"$inc": {"balance": yield_reward}, "$set": {"last_staking_claim": now}})
             log_transaction("STAKING_RESERVE", username, yield_reward, "staking_yield")
-
     return redirect(url_for("dashboard"))
 
 @app.route("/admin/transactions")
 def admin_transactions():
     if session.get("role") != "admin":
         return redirect(url_for("dashboard"))
-    
     recent_txs = list(tx_col.find().sort("timestamp", -1).limit(50))
     return render_template("admin_txs.html", txs=recent_txs, symbol=COIN_SYMBOL)
 
@@ -295,21 +387,11 @@ def submit_block():
 
     current_diff = get_current_difficulty()
     if result_hash.startswith(current_diff):
-        # Пресмятаме ДИНАМИЧНАТА награда за изкопания блок
         miner_reward = calculate_dynamic_reward()
-        
-        sensors_col.insert_one({
-            "validated_by": username, 
-            "raw_target": target_string, 
-            "block_hash": result_hash, 
-            "reward": miner_reward,
-            "timestamp": time.time()
-        })
+        sensors_col.insert_one({"validated_by": username, "raw_target": target_string, "block_hash": result_hash, "reward": miner_reward, "timestamp": time.time()})
         users_col.update_one({"username": username}, {"$inc": {"balance": miner_reward}})
         log_transaction("NETWORK_MINING", username, miner_reward, "reward")
-        
         adjust_difficulty()
-
         return jsonify({"status": "ACCEPTED", "message": f"🎉 Успешен блок! Награда: {miner_reward} {COIN_SYMBOL}"})
     else:
         return jsonify({"status": "REJECTED", "message": "PoW грешен хеш!"}), 400
