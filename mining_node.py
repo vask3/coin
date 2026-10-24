@@ -27,7 +27,6 @@ WELCOME_BONUS = 5.0
 
 BLOCK_REWARD = 0.05 
 STAKING_DAILY_RATE = 0.001
-current_difficulty = "0000"
 
 MAX_SUPPLY = 2000000.0
 MARKETING_RESERVE_INIT = 200000.0
@@ -39,10 +38,34 @@ def init_system_budget():
             "type": "budget",
             "marketing_budget": MARKETING_RESERVE_INIT,
             "mining_pool_budget": RESERVE_INIT,
-            "total_minted": 0.0
+            "total_minted": 0.0,
+            "difficulty": "000"  рена начална трудност (3 нули)
         })
 
 init_system_budget()
+
+def get_current_difficulty():
+    state = system_col.find_one({"type": "budget"})
+    return state.get("difficulty", "000") if state else "000"
+
+def adjust_difficulty():
+    """Динамична корекция на трудността на базата на времето за копаене"""
+    recent_blocks = list(sensors_col.find().sort("timestamp", -1).limit(4))
+    if len(recent_blocks) >= 4:
+        t_newest = recent_blocks[0]["timestamp"]
+        t_oldest = recent_blocks[3]["timestamp"]
+        avg_time = (t_newest - t_oldest) / 3.0  # Средно време за блок
+        
+        current_diff = get_current_difficulty()
+        
+        # Ако копаят прекалено бързо (под 6 секунди на блок), вдигаме трудността
+        if avg_time < 6.0 and len(current_diff) < 6:
+            new_diff = current_diff + "0"
+            system_col.update_one({"type": "budget"}, {"$set": {"difficulty": new_diff}})
+        # Ако копаят прекалено бавно (над 25 секунди), я улесняваме
+        elif avg_time > 25.0 and len(current_diff) > 2:
+            new_diff = current_diff[:-1]
+            system_col.update_one({"type": "budget"}, {"$set": {"difficulty": new_diff}})
 
 def log_transaction(sender, receiver, amount, tx_type):
     tx_col.insert_one({
@@ -76,7 +99,7 @@ def api_network_status():
     next_target = f"IOT_NODE_{random.randint(1000,9999)}_TEMP:{random.uniform(18.5, 38.2):.2f}_TIME:{int(time.time())}"
     return jsonify({
         "next_target": next_target,
-        "difficulty": current_difficulty,
+        "difficulty": get_current_difficulty(),
         "total_blocks": sensors_col.count_documents({}),
         "last_block_hash": last_block.get("block_hash", "N/A") if last_block else "Няма запечатани блокове",
         "last_miner": last_block.get("validated_by", "N/A") if last_block else "N/A",
@@ -155,7 +178,6 @@ def dashboard():
     user_blocks = list(sensors_col.find({"validated_by": username}).sort("timestamp", -1).limit(5))
     budget_state = system_col.find_one({"type": "budget"}) or {"marketing_budget": 0.0, "mining_pool_budget": 0.0}
 
-    # Подаваме абсолютно всички променливи едновременно, за да няма сривове
     return render_template("dashboard.html", 
                            username=username, 
                            balance=user_data.get("balance", 0.0), 
@@ -163,7 +185,7 @@ def dashboard():
                            mining_key=user_data.get("mining_key", "N/A"),
                            role=user_data.get("role", "user"),
                            last_sensor=sensor_display, 
-                           difficulty=current_difficulty,
+                           difficulty=get_current_difficulty(),
                            symbol=COIN_SYMBOL,
                            coin_name=COIN_NAME,
                            total_users=total_users,
@@ -242,7 +264,7 @@ def get_job():
     temp = round(random.uniform(18.5, 38.2), 2)
     humidity = round(random.uniform(30.0, 85.0), 1)
     target_payload = f"IOT_NODE_{sensor_id}_TEMP:{temp}_HUM:{humidity}%_TIME:{int(time.time())}"
-    return jsonify({"target": target_payload, "difficulty": current_difficulty})
+    return jsonify({"target": target_payload, "difficulty": get_current_difficulty()})
 
 @app.route("/submit_block", methods=["POST"])
 def submit_block():
@@ -259,7 +281,8 @@ def submit_block():
     combined = target_string + nonce
     result_hash = hashlib.sha256(combined.encode()).hexdigest()
 
-    if result_hash.startswith(current_difficulty):
+    current_diff = get_current_difficulty()
+    if result_hash.startswith(current_diff):
         miner_reward = BLOCK_REWARD
         sensors_col.insert_one({
             "validated_by": username, 
@@ -269,6 +292,10 @@ def submit_block():
         })
         users_col.update_one({"username": username}, {"$inc": {"balance": miner_reward}})
         log_transaction("NETWORK_MINING", username, miner_reward, "reward")
+        
+        # Автоматично адаптиране на трудността след успешен блок
+        adjust_difficulty()
+
         return jsonify({"status": "ACCEPTED", "message": f"🎉 Успешен блок! Награда: {miner_reward} {COIN_SYMBOL}"})
     else:
         return jsonify({"status": "REJECTED", "message": "PoW грешен хеш!"}), 400
@@ -294,13 +321,6 @@ def admin_transfer():
             users_col.update_one({"username": ADMIN_USERNAME}, {"$inc": {"balance": -amount}})
             system_col.update_one({"type": "budget"}, {"$inc": {"marketing_budget": amount}})
             log_transaction(ADMIN_USERNAME, "MARKETING_BUDGET", amount, "fund_refill")
-
-    elif target_user == "mining_pool":
-        admin_data = users_col.find_one({"username": ADMIN_USERNAME}) or {}
-        if source_type == "personal" and admin_data.get("balance", 0.0) >= amount:
-            users_col.update_one({"username": ADMIN_USERNAME}, {"$inc": {"balance": -amount}})
-            system_col.update_one({"type": "budget"}, {"$inc": {"mining_pool_budget": amount}})
-            log_transaction(ADMIN_USERNAME, "RESERVE_FUND", amount, "fund_refill")
 
     else:
         if not users_col.find_one({"username": target_user}):
