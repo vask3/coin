@@ -49,6 +49,11 @@
             text-decoration: none;
             font-weight: 600;
             font-size: 13px;
+            transition: all 0.2s;
+        }
+        .logout-btn:hover {
+            background-color: var(--danger);
+            color: white;
         }
         .container {
             max-width: 1000px;
@@ -62,6 +67,17 @@
             border-radius: 16px;
             padding: 25px 30px;
             margin-bottom: 25px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        .welcome-banner h2 {
+            margin: 0 0 8px 0;
+            font-size: 24px;
+            color: #ffffff;
+        }
+        .welcome-banner p {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 14px;
         }
         .grid {
             display: grid;
@@ -134,6 +150,10 @@
             margin-bottom: 12px;
             box-sizing: border-box;
         }
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
         .btn {
             background-color: var(--accent-green);
             color: white;
@@ -144,6 +164,10 @@
             cursor: pointer;
             width: 100%;
             font-size: 15px;
+            transition: opacity 0.2s;
+        }
+        .btn:hover {
+            opacity: 0.9;
         }
         .miner-link {
             display: flex;
@@ -199,6 +223,7 @@
             <p>Твоята децентрализирана IoT екосистема е активна.</p>
         </div>
 
+        <!-- Мрежови Статистики -->
         <div class="stats-grid">
             <div class="stat-card" style="border-color: var(--accent-green);">
                 <div style="color: var(--text-muted); font-size: 13px;">🎯 Награда на Блок</div>
@@ -208,9 +233,9 @@
                 <div style="color: var(--text-muted); font-size: 13px;">⛓️ Общо блокове</div>
                 <div class="stat-value">{{ total_blocks }}</div>
             </div>
-            <div class="stat-card">
-                <div style="color: var(--text-muted); font-size: 13px;">⚡ Трудност</div>
-                <div class="stat-value" style="color: var(--accent-blue);">{{ difficulty }}</div>
+            <div class="stat-card" style="border-color: var(--accent-blue);">
+                <div style="color: var(--text-muted); font-size: 13px;">⚡ Динамична трудност</div>
+                <div class="stat-value" style="color: var(--accent-blue); font-family: monospace;">{{ difficulty }}</div>
             </div>
         </div>
 
@@ -270,22 +295,47 @@
             {% endif %}
         </div>
 
+        <!-- Преработен модерен Административен панел (само за админ) -->
         {% if role == 'admin' %}
-        <div class="card" style="border-color: rgba(245, 158, 11, 0.4); margin-bottom: 25px; background: linear-gradient(135deg, #131d31 0%, #1a1b26 100%);">
-            <h3 style="color: var(--warning);">🛡️ Админ панел</h3>
-            <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px; background: #0b0f19; padding: 12px; border-radius: 8px;">
-                <span>📢 Маркетинг фонд: <strong style="color: var(--accent-green);">{{ "%.2f"|format(marketing_budget) }} VASK</strong></span>
+        <div class="card" style="border: 1px solid rgba(245, 158, 11, 0.5); margin-bottom: 25px; background: linear-gradient(145deg, #161f33 0%, #0e1422 100%); box-shadow: 0 8px 32px rgba(245, 158, 11, 0.1);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; border-bottom: 1px solid rgba(245, 158, 11, 0.2); padding-bottom: 10px;">
+                <h3 style="color: var(--warning); margin: 0; display: flex; align-items: center; gap: 8px;">🛡️ Административен Контролен Панел</h3>
+                <span style="background: rgba(245, 158, 11, 0.15); color: var(--warning); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold;">ROOT ACCESS</span>
             </div>
-            <form action="/admin/transfer" method="POST">
-                <input type="text" name="target_user" class="form-control" placeholder="Потребител ИЛИ 'marketing_budget'" required>
-                <input type="number" step="0.00001" name="amount" class="form-control" placeholder="Сума" required>
-                <select name="source_type" class="form-control">
-                    <option value="personal">От личен баланс</option>
-                    <option value="marketing">От маркетинг фонд</option>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 20px; background: #0b0f19; padding: 15px; border-radius: 12px; border: 1px solid var(--border-color);">
+                <div>
+                    <span style="font-size: 12px; color: var(--text-muted); display: block;">📢 Маркетинг фонд</span>
+                    <strong style="color: var(--accent-green); font-size: 16px;">{{ "%.2f"|format(marketing_budget) }} VASK</strong>
+                </div>
+                <div>
+                    <span style="font-size: 12px; color: var(--text-muted); display: block;">⚡ Трудност</span>
+                    <strong style="color: var(--accent-blue); font-size: 16px; font-family: monospace;">{{ difficulty }}</strong>
+                </div>
+                <div>
+                    <span style="font-size: 12px; color: var(--text-muted); display: block;">💎 Макс. Емисия</span>
+                    <strong style="color: #f1f5f9; font-size: 16px;">{{ "%.0f"|format(max_supply) }} VASK</strong>
+                </div>
+            </div>
+
+            <form action="/admin/transfer" method="POST" style="background: rgba(11, 15, 25, 0.5); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color);">
+                <label style="font-size: 13px; color: #cbd5e1; display: block; margin-bottom: 8px; font-weight: 600;">🔄 Бърз превод / Управление на фондове:</label>
+                <input type="text" name="target_user" class="form-control" placeholder="Потребителско име ИЛИ 'marketing_budget'" required>
+                <input type="number" step="0.00001" name="amount" class="form-control" placeholder="Сума за превод (VASK)" required>
+                
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 6px;">Избери източник или цел:</label>
+                <select name="source_type" class="form-control" style="cursor: pointer; margin-bottom: 15px;">
+                    <option value="personal">👤 От моя личен баланс (vasko_creator)</option>
+                    <option value="marketing">📢 От Маркетинг бюджета към потребител</option>
                 </select>
-                <button type="submit" class="btn" style="background-color: var(--warning); color: #000;">Превод</button>
+
+                <button type="submit" class="btn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #000; font-weight: bold; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);">Извърши административен превод</button>
             </form>
-            <a href="/admin/transactions" style="display: inline-block; margin-top: 15px; color: var(--accent-blue); text-decoration: none; font-size: 13px;">🔒 Транзакции →</a>
+
+            <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+                <span style="color: var(--text-muted);">* За вноска във фонд впиши <code>marketing_budget</code> в полето.</span>
+                <a href="/admin/transactions" style="color: var(--accent-blue); text-decoration: none; font-weight: bold; display: flex; align-items: center; gap: 4px;">🔒 Частен регистър →</a>
+            </div>
         </div>
         {% endif %}
 
