@@ -39,7 +39,7 @@ def init_system_budget():
             "type": "budget",
             "marketing_budget": MARKETING_RESERVE_INIT,
             "mining_pool_budget": RESERVE_INIT,
-            "maintenance_fund": 0.0,  # Фонд Поддръжка за събиране на Gas Fee
+            "maintenance_fund": 0.0,  # Автономен фонд поддръжка
             "total_minted": 0.0,
             "difficulty": "000"
         })
@@ -267,6 +267,44 @@ def redeem_promo():
                 users_col.update_one({"username": username}, {"$inc": {"balance": reward_amount}})
                 promo_col.update_one({"code": code_input}, {"$push": {"used_by": username}})
                 log_transaction(ADMIN_USERNAME, username, reward_amount, f"PROMO_CODE ({code_input})")
+
+    return redirect(url_for("dashboard"))
+
+# --- Служебно създаване / регистрация на потребител от админа ---
+@app.route("/admin/create_user", methods=["POST"])
+def admin_create_user():
+    if session.get("role") != "admin":
+        return redirect(url_for("dashboard"))
+
+    new_username = request.form.get("username", "").strip()
+    new_email = request.form.get("email", "").strip()
+    new_password = request.form.get("password", "")
+    try:
+        initial_balance = float(request.form.get("balance", WELCOME_BONUS))
+    except ValueError:
+        initial_balance = WELCOME_BONUS
+
+    if not new_username or not new_password:
+        return redirect(url_for("dashboard"))
+
+    if users_col.find_one({"username": new_username}):
+        return redirect(url_for("dashboard"))
+
+    mining_key = ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=6))
+    
+    user_doc = {
+        "username": new_username,
+        "email": new_email,
+        "password": generate_password_hash(new_password),
+        "balance": initial_balance,
+        "staked_balance": 0.0,
+        "mining_key": mining_key,
+        "role": "user",
+        "last_active": time.time(),
+        "last_staking_claim": time.time()
+    }
+    users_col.insert_one(user_doc)
+    log_transaction("ADMIN_CREATION", new_username, initial_balance, "admin_user_registration")
 
     return redirect(url_for("dashboard"))
 
