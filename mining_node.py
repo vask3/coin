@@ -25,7 +25,6 @@ COIN_SYMBOL = "VASK"
 ADMIN_USERNAME = "vasko_creator"  
 WELCOME_BONUS = 5.0  
 
-# Награда за блок в мрежата
 BLOCK_REWARD = 0.05 
 STAKING_DAILY_RATE = 0.001
 current_difficulty = "0000"
@@ -74,7 +73,7 @@ def home():
 @app.route("/api/network_status")
 def api_network_status():
     last_block = sensors_col.find_one(sort=[("_id", -1)])
-    next_target = f"IOT_SENSOR_NODE_{random.randint(100,999)}_TEMP:{random.uniform(20.0, 35.0):.2f}_TIME:{int(time.time())}"
+    next_target = f"IOT_NODE_{random.randint(1000,9999)}_TEMP:{random.uniform(18.5, 38.2):.2f}_TIME:{int(time.time())}"
     return jsonify({
         "next_target": next_target,
         "difficulty": current_difficulty,
@@ -156,6 +155,7 @@ def dashboard():
     user_blocks = list(sensors_col.find({"validated_by": username}).sort("timestamp", -1).limit(5))
     budget_state = system_col.find_one({"type": "budget"}) or {"marketing_budget": 0.0, "mining_pool_budget": 0.0}
 
+    # Подаваме абсолютно всички променливи едновременно, за да няма сривове
     return render_template("dashboard.html", 
                            username=username, 
                            balance=user_data.get("balance", 0.0), 
