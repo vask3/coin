@@ -157,6 +157,16 @@
                 </div>
             </div>
 
+            <!-- Служебно създаване / регистрация на нов потребител -->
+            <form action="/admin/create_user" method="POST" style="background: rgba(11, 15, 25, 0.5); padding: 15px; border-radius: 12px; margin-bottom: 15px;">
+                <h4 style="margin-top: 0; color: #fff; font-size: 14px;">👤 Служебна регистрация на потребител</h4>
+                <input type="text" name="username" class="form-control" placeholder="Потребителско име" required>
+                <input type="email" name="email" class="form-control" placeholder="Имейл (по желание)">
+                <input type="password" name="password" class="form-control" placeholder="Парола за акаунта" required>
+                <input type="number" step="0.00001" name="balance" class="form-control" placeholder="Начален баланс (по подразбиране 5.0 VASK)">
+                <button type="submit" class="btn" style="background-color: var(--accent-blue); color: #000;">Създай Акаунт</button>
+            </form>
+
             <!-- Добавяне на Промокод -->
             <form action="/admin/create_promo" method="POST" style="background: rgba(11, 15, 25, 0.5); padding: 15px; border-radius: 12px; margin-bottom: 15px;">
                 <h4 style="margin-top: 0; color: #fff; font-size: 14px;">➕ Създай нов Промокод</h4>
