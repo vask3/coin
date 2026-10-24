@@ -223,18 +223,18 @@
             <p>Твоята децентрализирана IoT екосистема е активна.</p>
         </div>
 
-        <!-- Мрежови Статистики -->
+        <!-- Мрежови Статистики с Динамична Награда -->
         <div class="stats-grid">
             <div class="stat-card" style="border-color: var(--accent-green);">
-                <div style="color: var(--text-muted); font-size: 13px;">🎯 Награда на Блок</div>
-                <div class="stat-value" style="color: var(--accent-green);">{{ "%.2f"|format(block_reward) }} VASK</div>
+                <div style="color: var(--text-muted); font-size: 13px;">🎯 Динамична Награда</div>
+                <div class="stat-value" style="color: var(--accent-green); font-size: 19px;">~{{ "%.5f"|format(block_reward) }} VASK</div>
             </div>
             <div class="stat-card">
                 <div style="color: var(--text-muted); font-size: 13px;">⛓️ Общо блокове</div>
                 <div class="stat-value">{{ total_blocks }}</div>
             </div>
             <div class="stat-card" style="border-color: var(--accent-blue);">
-                <div style="color: var(--text-muted); font-size: 13px;">⚡ Динамична трудност</div>
+                <div style="color: var(--text-muted); font-size: 13px;">⚡ Трудност на мрежата</div>
                 <div class="stat-value" style="color: var(--accent-blue); font-family: monospace;">{{ difficulty }}</div>
             </div>
         </div>
