@@ -39,7 +39,7 @@ def init_system_budget():
         system_col.insert_one({
             "type": "budget",
             "marketing_budget": MARKETING_RESERVE_INIT,
-            "mining_pool_budget": RESERVE_INIT, # Запазваме го като вътрешен резерв
+            "mining_pool_budget": RESERVE_INIT,
             "total_minted": 0.0
         })
 
@@ -172,7 +172,8 @@ def dashboard():
                            marketing_budget=budget_state.get("marketing_budget", 0.0),
                            mining_pool_budget=budget_state.get("mining_pool_budget", 0.0),
                            max_supply=MAX_SUPPLY,
-                           block_reward=BLOCK_REWARD)
+                           block_reward=BLOCK_REWARD,
+                           pool_reward=BLOCK_REWARD)
 
 @app.route("/staking/deposit", methods=["POST"])
 def staking_deposit():
