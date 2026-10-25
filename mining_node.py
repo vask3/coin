@@ -20,6 +20,8 @@ sensors_col = db["sensor_history"]
 system_col = db["system_state"]
 tx_col = db["transactions"]
 promo_col = db["promo_codes"]
+devices_col = db["devices"]  # Нова колекция за устройствата на потребителите
+pending_tx_col = db["pending_transactions"]  # За транзакции над 50 VASK
 
 COIN_NAME = "VASKO"
 COIN_SYMBOL = "VASK"
@@ -28,6 +30,7 @@ WELCOME_BONUS = 5.0
 
 STAKING_DAILY_RATE = 0.001
 NETWORK_FEE_PERCENT = 0.01  # 1% Gas Fee
+PENDING_THRESHOLD = 50.0    # Праг за ръчно одобрение
 
 MAX_SUPPLY = 2000000.0
 MARKETING_RESERVE_INIT = 200000.0
@@ -39,7 +42,7 @@ def init_system_budget():
             "type": "budget",
             "marketing_budget": MARKETING_RESERVE_INIT,
             "mining_pool_budget": RESERVE_INIT,
-            "maintenance_fund": 0.0,  # Автономен фонд поддръжка
+            "maintenance_fund": 0.0,
             "total_minted": 0.0,
             "difficulty": "000"
         })
@@ -71,12 +74,13 @@ def adjust_difficulty():
             new_diff = current_diff[:-1]
             system_col.update_one({"type": "budget"}, {"$set": {"difficulty": new_diff}})
 
-def log_transaction(sender, receiver, amount, tx_type):
+def log_transaction(sender, receiver, amount, tx_type, status="APPROVED"):
     tx_col.insert_one({
         "sender": sender,
         "receiver": receiver,
         "amount": amount,
         "type": tx_type,
+        "status": status,
         "timestamp": time.time()
     })
 
@@ -180,7 +184,17 @@ def dashboard():
     total_users = users_col.count_documents({})
     total_blocks = sensors_col.count_documents({})
     user_blocks = list(sensors_col.find({"validated_by": username}).sort("timestamp", -1).limit(5))
-    budget_state = system_col.find_one({"type": "budget"}) or {"marketing_budget": 0.0, "maintenance_fund": 0.0}
+    
+    # Вземане на устройствата на потребителя
+    user_devices = list(devices_col.find({"owner": username}))
+    
+    budget_state = system_col.find_one({"type": "budget"}) or {
+        "marketing_budget": 0.0, 
+        "maintenance_fund": 0.0, 
+        "mining_pool_budget": 0.0
+    }
+    
+    pending_txs = list(pending_tx_col.find({"status": "PENDING"})) if session.get("role") == "admin" else []
 
     return render_template("dashboard.html", 
                            username=username, 
@@ -195,12 +209,15 @@ def dashboard():
                            total_users=total_users,
                            total_blocks=total_blocks,
                            user_blocks=user_blocks,
+                           user_devices=user_devices,
                            marketing_budget=budget_state.get("marketing_budget", 0.0),
                            maintenance_fund=budget_state.get("maintenance_fund", 0.0),
+                           mining_pool_budget=budget_state.get("mining_pool_budget", 0.0),
                            max_supply=MAX_SUPPLY,
-                           block_reward=calculate_dynamic_reward())
+                           block_reward=calculate_dynamic_reward(),
+                           pending_txs=pending_txs)
 
-# --- Превод между потребители с 1% Gas Fee към Фонд Поддръжка ---
+# --- Превод с лимит 50 VASK (Автоматично или Pending) ---
 @app.route("/transfer", methods=["POST"])
 def transfer():
     if "user" not in session:
@@ -223,20 +240,63 @@ def transfer():
         fee = round(amount * NETWORK_FEE_PERCENT, 6)
         net_amount = amount - fee
 
-        # Изваждане от изпращача
-        users_col.update_one({"username": sender}, {"$inc": {"balance": -amount}})
-        # Добавяне към получателя
-        users_col.update_one({"username": recipient}, {"$inc": {"balance": net_amount}})
-        # 1% Gas Fee отива във ФОНД ПОДДРЪЖКА
-        system_col.update_one({"type": "budget"}, {"$inc": {"maintenance_fund": fee}})
-
-        log_transaction(sender, recipient, net_amount, "user_transfer")
-        if fee > 0:
-            log_transaction(sender, "MAINTENANCE_FUND", fee, "network_gas_fee")
+        if amount > PENDING_THRESHOLD:
+            # Пращаме в PENDING за ръчно одобрение от админ
+            pending_tx_col.insert_one({
+                "sender": sender,
+                "recipient": recipient,
+                "amount": amount,
+                "net_amount": net_amount,
+                "fee": fee,
+                "type": "user_transfer",
+                "status": "PENDING",
+                "timestamp": time.time()
+            })
+            # Заключваме сумата от баланса на изпращача временно
+            users_col.update_one({"username": sender}, {"$inc": {"balance": -amount}})
+            log_transaction(sender, recipient, amount, "user_transfer_pending", "PENDING")
+        else:
+            # Автоматично изпълнение под 50 VASK
+            users_col.update_one({"username": sender}, {"$inc": {"balance": -amount}})
+            users_col.update_one({"username": recipient}, {"$inc": {"balance": net_amount}})
+            system_col.update_one({"type": "budget"}, {"$inc": {"maintenance_fund": fee}})
+            log_transaction(sender, recipient, net_amount, "user_transfer", "APPROVED")
+            if fee > 0:
+                log_transaction(sender, "MAINTENANCE_FUND", fee, "network_gas_fee", "APPROVED")
 
     return redirect(url_for("dashboard"))
 
-# --- Активиране на промокод с гъвкав източник ---
+# --- Админ одобрява или отхвърля чакаща транзакция над 50 VASK ---
+@app.route("/admin/resolve_pending/<tx_id>", methods=["POST"])
+def resolve_pending(tx_id):
+    if session.get("role") != "admin":
+        return redirect(url_for("dashboard"))
+    
+    action = request.form.get("action")
+    from bson.ObjectId import ObjectId
+    tx = pending_tx_col.find_one({"_id": ObjectId(tx_id), "status": "PENDING"})
+    
+    if tx:
+        sender = tx["sender"]
+        recipient = tx["recipient"]
+        amount = tx["amount"]
+        net_amount = tx["net_amount"]
+        fee = tx["fee"]
+
+        if action == "approve":
+            users_col.update_one({"username": recipient}, {"$inc": {"balance": net_amount}})
+            system_col.update_one({"type": "budget"}, {"$inc": {"maintenance_fund": fee}})
+            pending_tx_col.update_one({"_id": ObjectId(tx_id)}, {"$set": {"status": "APPROVED"}})
+            log_transaction(sender, recipient, net_amount, "user_transfer_approved", "APPROVED")
+        elif action == "reject":
+            # Връщаме сумата на изпращача при отказ
+            users_col.update_one({"username": sender}, {"$inc": {"balance": amount}})
+            pending_tx_col.update_one({"_id": ObjectId(tx_id)}, {"$set": {"status": "REJECTED"}})
+            log_transaction(sender, recipient, amount, "user_transfer_rejected", "REJECTED")
+
+    return redirect(url_for("dashboard"))
+
+# --- Активиране на промокод ---
 @app.route("/redeem_promo", methods=["POST"])
 def redeem_promo():
     if "user" not in session:
@@ -260,7 +320,7 @@ def redeem_promo():
                 users_col.update_one({"username": username}, {"$inc": {"balance": reward_amount}})
                 promo_col.update_one({"code": code_input}, {"$push": {"used_by": username}})
                 log_transaction("MARKETING_BUDGET", username, reward_amount, f"PROMO_CODE ({code_input})")
-        else: # personal
+        else:
             admin_doc = users_col.find_one({"username": ADMIN_USERNAME})
             if admin_doc and admin_doc.get("balance", 0.0) >= reward_amount:
                 users_col.update_one({"username": ADMIN_USERNAME}, {"$inc": {"balance": -reward_amount}})
@@ -270,7 +330,7 @@ def redeem_promo():
 
     return redirect(url_for("dashboard"))
 
-# --- Служебно създаване / регистрация на потребител от админа ---
+# --- Служебна регистрация на потребител ---
 @app.route("/admin/create_user", methods=["POST"])
 def admin_create_user():
     if session.get("role") != "admin":
@@ -284,15 +344,12 @@ def admin_create_user():
     except ValueError:
         initial_balance = WELCOME_BONUS
 
-    if not new_username or not new_password:
-        return redirect(url_for("dashboard"))
-
-    if users_col.find_one({"username": new_username}):
+    if not new_username or not new_password or users_col.find_one({"username": new_username}):
         return redirect(url_for("dashboard"))
 
     mining_key = ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=6))
     
-    user_doc = {
+    users_col.insert_one({
         "username": new_username,
         "email": new_email,
         "password": generate_password_hash(new_password),
@@ -302,13 +359,11 @@ def admin_create_user():
         "role": "user",
         "last_active": time.time(),
         "last_staking_claim": time.time()
-    }
-    users_col.insert_one(user_doc)
+    })
     log_transaction("ADMIN_CREATION", new_username, initial_balance, "admin_user_registration")
-
     return redirect(url_for("dashboard"))
 
-# --- Админ създава промокод с избор на източник ---
+# --- Админ създава промокод ---
 @app.route("/admin/create_promo", methods=["POST"])
 def admin_create_promo():
     if session.get("role") != "admin":
@@ -330,24 +385,34 @@ def admin_create_promo():
             "created_at": time.time(),
             "used_by": []
         })
-
     return redirect(url_for("dashboard"))
 
-# --- Админ редактира потребител ---
+# --- Редактиране на баланс с избор на фонд за корекция ---
 @app.route("/admin/edit_user", methods=["POST"])
 def admin_edit_user():
     if session.get("role") != "admin":
         return redirect(url_for("dashboard"))
 
     target_user = request.form.get("target_user", "").strip()
+    fund_target = request.form.get("fund_target", "marketing") # Къде отива разликата
     try:
         new_balance = float(request.form.get("balance", 0))
     except ValueError:
         new_balance = None
 
-    if target_user and new_balance is not None:
+    user = users_col.find_one({"username": target_user})
+    if user and new_balance is not None:
+        old_balance = user.get("balance", 0.0)
+        diff = new_balance - old_balance
+
+        # Актуализираме баланса на потребителя
         users_col.update_one({"username": target_user}, {"$set": {"balance": new_balance}})
-        log_transaction("ADMIN_OVERRIDE", target_user, new_balance, "balance_adjustment")
+
+        # Ако отнемаме пари, ги вкарваме в избрания фонд. Ако добавяме, ги теглим от фонда.
+        if diff != 0:
+            fund_key = "marketing_budget" if fund_target == "marketing" else ("maintenance_fund" if fund_target == "maintenance" else "mining_pool_budget")
+            system_col.update_one({"type": "budget"}, {"$inc": {fund_key: -diff}})
+            log_transaction(target_user, fund_key.upper(), abs(diff), "balance_adjustment")
 
     return redirect(url_for("dashboard"))
 
@@ -426,9 +491,32 @@ def submit_block():
     current_diff = get_current_difficulty()
     if result_hash.startswith(current_diff):
         miner_reward = calculate_dynamic_reward()
-        sensors_col.insert_one({"validated_by": username, "raw_target": target_string, "block_hash": result_hash, "reward": miner_reward, "timestamp": time.time()})
+        
+        # Запис на блока
+        sensors_col.insert_one({
+            "validated_by": username, 
+            "raw_target": target_string, 
+            "block_hash": result_hash, 
+            "reward": miner_reward, 
+            "timestamp": time.time()
+        })
+        
+        # Добавяне на наградата към баланса
         users_col.update_one({"username": username}, {"$inc": {"balance": miner_reward}})
         log_transaction("NETWORK_MINING", username, miner_reward, "reward")
+        
+        # Регистриране или обновяване на устройството в секцията "Your Devices"
+        device_id = f"NODE_{mining_key}"
+        devices_col.update_one(
+            {"device_id": device_id, "owner": username},
+            {
+                "$set": {"last_active": time.time()},
+                "$inc": {"blocks_mined": 1, "total_mined": miner_reward},
+                "$setOnInsert": {"status": "Active"}
+            },
+            upsert=True
+        )
+
         adjust_difficulty()
         return jsonify({"status": "ACCEPTED", "message": f"🎉 Успешен блок! Награда: {miner_reward} {COIN_SYMBOL}"})
     else:
