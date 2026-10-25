@@ -38,7 +38,7 @@
             border: 1px solid var(--border-color); border-radius: 16px; padding: 25px 30px; margin-bottom: 25px;
         }
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 25px; }
-        .card { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 25px; }
+        .card { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 25px; margin-bottom: 25px; }
         .card h3 { margin-top: 0; color: var(--accent-blue); font-size: 16px; margin-bottom: 15px; }
         .balance-value { font-size: 34px; font-weight: 800; color: var(--accent-green); }
         .key-box {
@@ -96,18 +96,47 @@
         </div>
 
         <div class="grid">
-            <div class="card">
+            <div class="card" style="margin-bottom: 0;">
                 <h3>💰 Наличен баланс</h3>
                 <div class="balance-value">{{ "%.5f"|format(balance) }} <span style="font-size: 18px; color: var(--text-muted); font-weight: 400;">{{ symbol }}</span></div>
             </div>
-            <div class="card">
+            <div class="card" style="margin-bottom: 0;">
                 <h3>🔑 Твой Миньорски ключ</h3>
                 <div class="key-box">{{ mining_key }}</div>
             </div>
         </div>
 
-        <!-- 🎁 Секция за Активиране на Промокод -->
-        <div class="card" style="margin-bottom: 25px;">
+        <!-- 📡 Секция "Your Devices" (Твои устройства) -->
+        <div class="card">
+            <h3>📡 Вашите свързани устройства (Your Devices)</h3>
+            {% if user_devices %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID на Устройство</th>
+                            <th>Статус</th>
+                            <th>Изкопани блокове</th>
+                            <th>Добити VASK</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for dev in user_devices %}
+                        <tr>
+                            <td style="color: var(--accent-blue);">{{ dev.device_id }}</td>
+                            <td><span style="color: var(--accent-green);">● Активно</span></td>
+                            <td>{{ dev.blocks_mined }}</td>
+                            <td style="color: var(--accent-green);">{{ "%.5f"|format(dev.total_mined) }} VASK</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p style="color: var(--text-muted); font-size: 14px; margin: 0;">Няма регистрирани устройства. Свържете уеб миньор или хардуерен нод с вашия ключ.</p>
+            {% endif %}
+        </div>
+
+        <!-- 🎁 Активиране на Промокод -->
+        <div class="card">
             <h3>🎁 Активирай Промокод</h3>
             <form action="/redeem_promo" method="POST">
                 <input type="text" name="promo_code" class="form-control" placeholder="Въведи промокод (напр. VASKO10)" required style="text-transform: uppercase;">
@@ -115,19 +144,19 @@
             </form>
         </div>
 
-        <!-- 💸 Вътрешен Превод между Потребители -->
-        <div class="card" style="margin-bottom: 25px;">
+        <!-- 💸 Превод между Потребители (Лимит 50 VASK за Pending) -->
+        <div class="card">
             <h3>💸 Изпрати VASK на Потребител</h3>
             <form action="/transfer" method="POST">
                 <input type="text" name="recipient" class="form-control" placeholder="Получател (потребителско име)" required>
                 <input type="number" step="0.00001" name="amount" class="form-control" placeholder="Сума за изпращане" required>
-                <p style="font-size: 11px; color: var(--text-muted); margin-top: -5px;">* Удържа се 1% мрежова такса към Фонд Поддръжка.</p>
+                <p style="font-size: 11px; color: var(--text-muted); margin-top: -5px;">* 1% такса отива във Фонд Поддръжка. Суми над 50 VASK изискват ръчно одобрение.</p>
                 <button type="submit" class="btn" style="background-color: var(--accent-blue); color: #000;">Изпрати Сума</button>
             </form>
         </div>
 
         <!-- Staking Секция -->
-        <div class="card" style="margin-bottom: 25px;">
+        <div class="card">
             <h3>🌱 Staking / Пасивен доход</h3>
             <div style="background: #0b0f19; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 14px;">
                 Заключени: <strong style="color: var(--accent-green);">{{ "%.5f"|format(staked_balance) }} {{ symbol }}</strong>
@@ -143,21 +172,45 @@
 
         <!-- Административен панел (само за админ) -->
         {% if role == 'admin' %}
-        <div class="card" style="border: 1px solid rgba(245, 158, 11, 0.5); margin-bottom: 25px; background: linear-gradient(145deg, #161f33 0%, #0e1422 100%);">
-            <h3 style="color: var(--warning);">🛡️ Административен Контрол & Управление</h3>
+        <div class="card" style="border: 1px solid rgba(245, 158, 11, 0.5); background: linear-gradient(145deg, #161f33 0%, #0e1422 100%);">
+            <h3 style="color: var(--warning);">🛡️ Административен Контрол & Фондове</h3>
             
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 20px; background: #0b0f19; padding: 15px; border-radius: 12px;">
+            <!-- Баланси на всички фондове -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 20px; background: #0b0f19; padding: 15px; border-radius: 12px;">
                 <div>
-                    <span style="font-size: 12px; color: var(--text-muted); display: block;">📢 Маркетинг фонд</span>
-                    <strong style="color: var(--accent-green); font-size: 15px;">{{ "%.2f"|format(marketing_budget) }} VASK</strong>
+                    <span style="font-size: 11px; color: var(--text-muted); display: block;">📢 Маркетинг фонд</span>
+                    <strong style="color: var(--accent-green); font-size: 14px;">{{ "%.2f"|format(marketing_budget) }} VASK</strong>
                 </div>
                 <div>
-                    <span style="font-size: 12px; color: var(--text-muted); display: block;">🛠️ Фонд Поддръжка (Gas Fee)</span>
-                    <strong style="color: var(--accent-blue); font-size: 15px;">{{ "%.5f"|format(maintenance_fund) }} VASK</strong>
+                    <span style="font-size: 11px; color: var(--text-muted); display: block;">🛠️ Фонд Поддръжка</span>
+                    <strong style="color: var(--accent-blue); font-size: 14px;">{{ "%.5f"|format(maintenance_fund) }} VASK</strong>
+                </div>
+                <div>
+                    <span style="font-size: 11px; color: var(--text-muted); display: block;">⛏️ Пул за награди</span>
+                    <strong style="color: var(--warning); font-size: 14px;">{{ "%.2f"|format(mining_pool_budget) }} VASK</strong>
                 </div>
             </div>
 
-            <!-- Служебно създаване / регистрация на нов потребител -->
+            <!-- Одобрение на транзакции над 50 VASK (Pending) -->
+            {% if pending_txs %}
+            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); padding: 15px; border-radius: 12px; margin-bottom: 15px;">
+                <h4 style="margin-top: 0; color: var(--danger); font-size: 14px;">⚠️ Чакащи транзакции за одобрение (> 50 VASK)</h4>
+                {% for ptx in pending_txs %}
+                <div style="display: flex; justify-content: space-between; align-items: center; background: #0b0f19; padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 13px;">
+                    <div>
+                        <strong>{{ ptx.sender }}</strong> ➔ <strong>{{ ptx.recipient }}</strong>: 
+                        <span style="color: var(--warning);">{{ ptx.amount }} VASK</span>
+                    </div>
+                    <form action="/admin/resolve_pending/{{ ptx._id }}" method="POST" style="margin: 0; display: flex; gap: 5px;">
+                        <button type="submit" name="action" value="approve" style="background: var(--accent-green); border: none; color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer;">Одобри</button>
+                        <button type="submit" name="action" value="reject" style="background: var(--danger); border: none; color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer;">Откажи</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Служебна регистрация на потребител -->
             <form action="/admin/create_user" method="POST" style="background: rgba(11, 15, 25, 0.5); padding: 15px; border-radius: 12px; margin-bottom: 15px;">
                 <h4 style="margin-top: 0; color: #fff; font-size: 14px;">👤 Служебна регистрация на потребител</h4>
                 <input type="text" name="username" class="form-control" placeholder="Потребителско име" required>
@@ -167,7 +220,7 @@
                 <button type="submit" class="btn" style="background-color: var(--accent-blue); color: #000;">Създай Акаунт</button>
             </form>
 
-            <!-- Добавяне на Промокод -->
+            <!-- Създаване на Промокод с избор на източник -->
             <form action="/admin/create_promo" method="POST" style="background: rgba(11, 15, 25, 0.5); padding: 15px; border-radius: 12px; margin-bottom: 15px;">
                 <h4 style="margin-top: 0; color: #fff; font-size: 14px;">➕ Създай нов Промокод</h4>
                 <input type="text" name="code" class="form-control" placeholder="Промокод (напр. PROMO50)" required style="text-transform: uppercase;">
@@ -179,11 +232,17 @@
                 <button type="submit" class="btn" style="background-color: var(--warning); color: #000;">Генерирай Промокод</button>
             </form>
 
-            <!-- Редактиране на Потребители -->
+            <!-- Редактиране на баланс с избор на фонд за разликата -->
             <form action="/admin/edit_user" method="POST" style="background: rgba(11, 15, 25, 0.5); padding: 15px; border-radius: 12px; margin-bottom: 15px;">
-                <h4 style="margin-top: 0; color: #fff; font-size: 14px;">✏️ Редактирай баланс на потребител</h4>
+                <h4 style="margin-top: 0; color: #fff; font-size: 14px;">✏️ Редактирай баланс и насочи разликата към фонд</h4>
                 <input type="text" name="target_user" class="form-control" placeholder="Потребителско име" required>
                 <input type="number" step="0.00001" name="balance" class="form-control" placeholder="Нов Баланс (VASK)" required>
+                <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 4px;">Къде да отиде/се вземе корекцията:</label>
+                <select name="fund_target" class="form-control" style="cursor: pointer; margin-bottom: 12px;">
+                    <option value="marketing">📢 Маркетинг фонд</option>
+                    <option value="maintenance">🛠️ Фонд Поддръжка</option>
+                    <option value="pool">⛏️ Пул за награди</option>
+                </select>
                 <button type="submit" class="btn" style="background-color: var(--danger);">Запази Промените</button>
             </form>
 
