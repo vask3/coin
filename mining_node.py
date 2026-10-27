@@ -6,6 +6,7 @@ import os
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from pymongo import MongoClient
+from bson.objectid import ObjectId  # Правилен импорт, за да няма грешка 500
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "vasko_crypto_super_secret_key")
@@ -49,7 +50,7 @@ def init_system_budget():
             "difficulty": "000"
         })
     
-    # Инициализиране на примерни евтини/дигитални артикули в магазина
+    # Инициализиране на примерни дигитални/физически артикули в магазина
     if shop_col.count_documents({}) == 0:
         shop_col.insert_many([
             {
@@ -198,7 +199,6 @@ def dashboard():
     total_blocks = sensors_col.count_documents({})
     user_devices = list(devices_col.find({"owner": username}))
     
-    # Зареждане на стоките от магазина
     shop_items = list(shop_col.find({"stock": {"$gt": 0}}))
     user_orders = list(orders_col.find({"buyer": username}).sort("timestamp", -1))
     
@@ -230,6 +230,34 @@ def dashboard():
                            block_reward=calculate_dynamic_reward(),
                            pending_txs=pending_txs)
 
+# --- Управление на чакащи транзакции (Admin) ---
+@app.route("/admin/resolve_pending/<tx_id>", methods=["POST"])
+def resolve_pending(tx_id):
+    if session.get("role") != "admin":
+        return redirect(url_for("dashboard"))
+    
+    action = request.form.get("action")
+    tx = pending_tx_col.find_one({"_id": ObjectId(tx_id), "status": "PENDING"})
+    
+    if tx:
+        sender = tx["sender"]
+        recipient = tx["recipient"]
+        amount = tx["amount"]
+        net_amount = tx["net_amount"]
+        fee = tx["fee"]
+
+        if action == "approve":
+            users_col.update_one({"username": recipient}, {"$inc": {"balance": net_amount}})
+            system_col.update_one({"type": "budget"}, {"$inc": {"maintenance_fund": fee}})
+            pending_tx_col.update_one({"_id": ObjectId(tx_id)}, {"$set": {"status": "APPROVED"}})
+            log_transaction(sender, recipient, net_amount, "user_transfer_approved", "APPROVED")
+        elif action == "reject":
+            users_col.update_one({"username": sender}, {"$inc": {"balance": amount}})
+            pending_tx_col.update_one({"_id": ObjectId(tx_id)}, {"$set": {"status": "REJECTED"}})
+            log_transaction(sender, recipient, amount, "user_transfer_rejected", "REJECTED")
+
+    return redirect(url_for("dashboard"))
+
 # --- Покупка от VASK Shop ---
 @app.route("/shop/buy/<item_id>", methods=["POST"])
 def shop_buy(item_id):
@@ -237,7 +265,6 @@ def shop_buy(item_id):
         return redirect(url_for("login"))
 
     username = session["user"]
-    from bson.ObjectId import ObjectId
     item = shop_col.find_one({"_id": ObjectId(item_id)})
     user = users_col.find_one({"username": username})
 
@@ -246,16 +273,10 @@ def shop_buy(item_id):
         if user.get("balance", 0.0) >= price:
             shipping_address = request.form.get("address", "Дигитална доставка")
 
-            # 1. Припадане на сумата от купувача
             users_col.update_one({"username": username}, {"$inc": {"balance": -price}})
-            
-            # 2. Насочване на приходите във Фонд Поддръжка (Maintenance Fund)
             system_col.update_one({"type": "budget"}, {"$inc": {"maintenance_fund": price}})
-            
-            # 3. Намаляване на наличността
             shop_col.update_one({"_id": ObjectId(item_id)}, {"$inc": {"stock": -1}})
 
-            # 4. Запис на поръчката
             orders_col.insert_one({
                 "buyer": username,
                 "item_title": item["title"],
