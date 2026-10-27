@@ -258,9 +258,23 @@ def resolve_pending(tx_id):
 
     return redirect(url_for("dashboard"))
 
-# --- Покупка от VASK Shop ---
-@app.route("/shop/buy/<item_id>", methods=["POST"])
-def shop_buy(item_id):
+# --- Checkout за Магазина (Показване на форма за адрес) ---
+@app.route("/shop/checkout/<item_id>", methods=["GET"])
+def shop_checkout(item_id):
+    if "user" not in session:
+        return redirect(url_for("login"))
+
+    item = shop_col.find_one({"_id": ObjectId(item_id)})
+    user = users_col.find_one({"username": session["user"]})
+
+    if not item or item.get("stock", 0) <= 0:
+        return redirect(url_for("dashboard"))
+
+    return render_template("checkout.html", item=item, balance=user.get("balance", 0.0), symbol=COIN_SYMBOL)
+
+# --- Обработка на плащането и данните за доставка ---
+@app.route("/shop/process_checkout/<item_id>", methods=["POST"])
+def process_checkout(item_id):
     if "user" not in session:
         return redirect(url_for("login"))
 
@@ -271,7 +285,11 @@ def shop_buy(item_id):
     if item and user and item.get("stock", 0) > 0:
         price = float(item["price"])
         if user.get("balance", 0.0) >= price:
-            shipping_address = request.form.get("address", "Дигитална доставка")
+            full_name = request.form.get("full_name", "").strip()
+            phone = request.form.get("phone", "").strip()
+            city = request.form.get("city", "").strip()
+            address = request.form.get("address", "").strip()
+            notes = request.form.get("notes", "").strip()
 
             users_col.update_one({"username": username}, {"$inc": {"balance": -price}})
             system_col.update_one({"type": "budget"}, {"$inc": {"maintenance_fund": price}})
@@ -282,7 +300,13 @@ def shop_buy(item_id):
                 "item_title": item["title"],
                 "price": price,
                 "type": item["type"],
-                "address": shipping_address,
+                "shipping_details": {
+                    "full_name": full_name,
+                    "phone": phone,
+                    "city": city,
+                    "address": address,
+                    "notes": notes
+                },
                 "status": "PROCESSING" if item["type"] == "physical" else "DELIVERED",
                 "timestamp": time.time()
             })
