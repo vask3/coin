@@ -62,12 +62,6 @@
             display: flex; justify-content: center; align-items: center; gap: 8px;
             background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: white; text-decoration: none; padding: 14px; border-radius: 10px; font-weight: 700;
         }
-        /* Стил за Магазина */
-        .shop-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; }
-        .shop-item { background: #0b0f19; border: 1px solid var(--border-color); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; justify-content: space-between; }
-        .shop-item h4 { margin: 0 0 8px 0; color: #fff; font-size: 15px; }
-        .shop-item p { color: var(--text-muted); font-size: 12px; margin-bottom: 12px; flex-grow: 1; }
-        .price-tag { font-size: 16px; font-weight: bold; color: var(--accent-green); margin-bottom: 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
         th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border-color); color: #e2e8f0; font-family: monospace; }
         th { color: var(--text-muted); }
@@ -141,61 +135,6 @@
             {% endif %}
         </div>
 
-        <!-- 🛒 VASK Official Store (Магазин) -->
-        <div class="card">
-            <h3>🛒 VASK Official Store (Купувай с VASK)</h3>
-            <div class="shop-grid">
-                {% for item in shop_items %}
-                <div class="shop-item">
-                    <div>
-                        <h4>{{ item.title }}</h4>
-                        <p>{{ item.description }}</p>
-                    </div>
-                    <div>
-                        <div class="price-tag">{{ "%.2f"|format(item.price) }} {{ symbol }}</div>
-                        <form action="/shop/buy/{{ item._id }}" method="POST">
-                            {% if item.type == 'physical' %}
-                                <input type="text" name="address" class="form-control" placeholder="Адрес за доставка" required style="font-size: 12px; padding: 8px;">
-                            {% endif %}
-                            <button type="submit" class="btn" style="background-color: var(--purple);">Купи Сега</button>
-                        </form>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-
-        <!-- 📜 Твоите Поръчки -->
-        {% if user_orders %}
-        <div class="card">
-            <h3>📦 Твоите Поръчки</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Артикул</th>
-                        <th>Цена</th>
-                        <th>Статус</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for order in user_orders %}
-                    <tr>
-                        <td style="color: #fff;">{{ order.item_title }}</td>
-                        <td style="color: var(--accent-green);">{{ order.price }} VASK</td>
-                        <td>
-                            {% if order.status == 'DELIVERED' %}
-                                <span style="color: var(--accent-green);">● Доставено / Активно</span>
-                            {% else %}
-                                <span style="color: var(--warning);">● Обработва се</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% endif %}
-
         <!-- 🎁 Активиране на Промокод -->
         <div class="card">
             <h3>🎁 Активирай Промокод</h3>
@@ -205,7 +144,7 @@
             </form>
         </div>
 
-        <!-- 💸 Превод между Потребители (Лимит 50 VASK за Pending) -->
+        <!-- 💸 Превод между Потребители -->
         <div class="card">
             <h3>💸 Изпрати VASK на Потребител</h3>
             <form action="/transfer" method="POST">
@@ -236,7 +175,6 @@
         <div class="card" style="border: 1px solid rgba(245, 158, 11, 0.5); background: linear-gradient(145deg, #161f33 0%, #0e1422 100%);">
             <h3 style="color: var(--warning);">🛡️ Административен Контрол & Фондове</h3>
             
-            <!-- Баланси на всички фондове -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 20px; background: #0b0f19; padding: 15px; border-radius: 12px;">
                 <div>
                     <span style="font-size: 11px; color: var(--text-muted); display: block;">📢 Маркетинг фонд</span>
@@ -252,7 +190,6 @@
                 </div>
             </div>
 
-            <!-- Одобрение на транзакции над 50 VASK (Pending) -->
             {% if pending_txs %}
             <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); padding: 15px; border-radius: 12px; margin-bottom: 15px;">
                 <h4 style="margin-top: 0; color: var(--danger); font-size: 14px;">⚠️ Чакащи транзакции за одобрение (> 50 VASK)</h4>
@@ -270,51 +207,14 @@
                 {% endfor %}
             </div>
             {% endif %}
-
-            <!-- Добавяне на артикул в магазина (Админ) -->
-            <form action="/admin/add_shop_item" method="POST" style="background: rgba(11, 15, 25, 0.5); padding: 15px; border-radius: 12px; margin-bottom: 15px;">
-                <h4 style="margin-top: 0; color: var(--warning); font-size: 14px;">🛍️ Админ: Добави стока в магазина</h4>
-                <input type="text" name="title" class="form-control" placeholder="Заглавие на артикула" required>
-                <input type="text" name="description" class="form-control" placeholder="Описание" required>
-                <input type="number" step="0.01" name="price" class="form-control" placeholder="Цена във VASK" required>
-                <input type="number" name="stock" class="form-control" placeholder="Наличност (Количество)" required>
-                <select name="type" class="form-control" style="cursor: pointer; margin-bottom: 12px;">
-                    <option value="digital">💻 Дигитален (VIP статус, STL файл)</option>
-                    <option value="physical">📦 Физически (Ключодържател, Стикери)</option>
-                </select>
-                <button type="submit" class="btn" style="background-color: var(--warning); color: #000;">Пусни в Магазина</button>
-            </form>
-
-            <!-- Служебна регистрация на потребител -->
-            <form action="/admin/create_user" method="POST" style="background: rgba(11, 15, 25, 0.5); padding: 15px; border-radius: 12px; margin-bottom: 15px;">
-                <h4 style="margin-top: 0; color: #fff; font-size: 14px;">👤 Служебна регистрация на потребител</h4>
-                <input type="text" name="username" class="form-control" placeholder="Потребителско име" required>
-                <input type="email" name="email" class="form-control" placeholder="Имейл (по желание)">
-                <input type="password" name="password" class="form-control" placeholder="Парола за акаунта" required>
-                <input type="number" step="0.00001" name="balance" class="form-control" placeholder="Начален баланс (по подразбиране 5.0 VASK)">
-                <button type="submit" class="btn" style="background-color: var(--accent-blue); color: #000;">Създай Акаунт</button>
-            </form>
-
-            <!-- Създаване на Промокод с избор на източник -->
-            <form action="/admin/create_promo" method="POST" style="background: rgba(11, 15, 25, 0.5); padding: 15px; border-radius: 12px; margin-bottom: 15px;">
-                <h4 style="margin-top: 0; color: #fff; font-size: 14px;">➕ Създай нов Промокод</h4>
-                <input type="text" name="code" class="form-control" placeholder="Промокод (напр. PROMO50)" required style="text-transform: uppercase;">
-                <input type="number" step="0.00001" name="reward" class="form-control" placeholder="Награда (VASK)" required>
-                <select name="source" class="form-control" style="cursor: pointer; margin-bottom: 12px;">
-                    <option value="personal">👤 От моя баланс (vasko_creator)</option>
-                    <option value="marketing">📢 От Маркетинг бюджета</option>
-                </select>
-                <button type="submit" class="btn" style="background-color: var(--warning); color: #000;">Генерирай Промокод</button>
-            </form>
-
-            <a href="/admin/transactions" style="color: var(--accent-blue); text-decoration: none; font-weight: bold; font-size: 13px;">🔒 Преглед на всички транзакции →</a>
         </div>
         {% endif %}
 
         <div class="card">
             <h3>⚡ Управление</h3>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
                 <a href="/miner" class="miner-link">🚀 Уеб Миньор</a>
+                <a href="/shop" class="miner-link" style="background: var(--purple);">🛒 Магазин</a>
                 <a href="/esp32_guides" class="miner-link" style="background: #334155;">📖 ESP32</a>
             </div>
         </div>
