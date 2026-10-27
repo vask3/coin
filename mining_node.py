@@ -6,7 +6,7 @@ import os
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from pymongo import MongoClient
-from bson.objectid import ObjectId  # Правилен импорт, за да няма грешка 500
+from bson.objectid import ObjectId
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "vasko_crypto_super_secret_key")
@@ -23,8 +23,8 @@ tx_col = db["transactions"]
 promo_col = db["promo_codes"]
 devices_col = db["devices"]
 pending_tx_col = db["pending_transactions"]
-shop_col = db["shop_items"]       # Колекция за артикулите в магазина
-orders_col = db["shop_orders"]     # Колекция за поръчките
+shop_col = db["shop_items"]
+orders_col = db["shop_orders"]
 
 COIN_NAME = "VASKO"
 COIN_SYMBOL = "VASK"
@@ -50,7 +50,6 @@ def init_system_budget():
             "difficulty": "000"
         })
     
-    # Инициализиране на примерни дигитални/физически артикули в магазина
     if shop_col.count_documents({}) == 0:
         shop_col.insert_many([
             {
@@ -199,9 +198,6 @@ def dashboard():
     total_blocks = sensors_col.count_documents({})
     user_devices = list(devices_col.find({"owner": username}))
     
-    shop_items = list(shop_col.find({"stock": {"$gt": 0}}))
-    user_orders = list(orders_col.find({"buyer": username}).sort("timestamp", -1))
-    
     budget_state = system_col.find_one({"type": "budget"}) or {
         "marketing_budget": 0.0, 
         "maintenance_fund": 0.0, 
@@ -222,43 +218,33 @@ def dashboard():
                            total_users=total_users,
                            total_blocks=total_blocks,
                            user_devices=user_devices,
-                           shop_items=shop_items,
-                           user_orders=user_orders,
                            marketing_budget=budget_state.get("marketing_budget", 0.0),
                            maintenance_fund=budget_state.get("maintenance_fund", 0.0),
                            mining_pool_budget=budget_state.get("mining_pool_budget", 0.0),
                            block_reward=calculate_dynamic_reward(),
                            pending_txs=pending_txs)
 
-# --- Управление на чакащи транзакции (Admin) ---
-@app.route("/admin/resolve_pending/<tx_id>", methods=["POST"])
-def resolve_pending(tx_id):
-    if session.get("role") != "admin":
-        return redirect(url_for("dashboard"))
+# --- Отделна страница за Магазина (/shop) ---
+@app.route("/shop")
+def shop_page():
+    if "user" not in session:
+        return redirect(url_for("login"))
     
-    action = request.form.get("action")
-    tx = pending_tx_col.find_one({"_id": ObjectId(tx_id), "status": "PENDING"})
+    username = session["user"]
+    user_data = users_col.find_one({"username": username}) or {}
     
-    if tx:
-        sender = tx["sender"]
-        recipient = tx["recipient"]
-        amount = tx["amount"]
-        net_amount = tx["net_amount"]
-        fee = tx["fee"]
+    shop_items = list(shop_col.find({"stock": {"$gt": 0}}))
+    user_orders = list(orders_col.find({"buyer": username}).sort("timestamp", -1))
 
-        if action == "approve":
-            users_col.update_one({"username": recipient}, {"$inc": {"balance": net_amount}})
-            system_col.update_one({"type": "budget"}, {"$inc": {"maintenance_fund": fee}})
-            pending_tx_col.update_one({"_id": ObjectId(tx_id)}, {"$set": {"status": "APPROVED"}})
-            log_transaction(sender, recipient, net_amount, "user_transfer_approved", "APPROVED")
-        elif action == "reject":
-            users_col.update_one({"username": sender}, {"$inc": {"balance": amount}})
-            pending_tx_col.update_one({"_id": ObjectId(tx_id)}, {"$set": {"status": "REJECTED"}})
-            log_transaction(sender, recipient, amount, "user_transfer_rejected", "REJECTED")
+    return render_template("shop.html", 
+                           username=username,
+                           balance=user_data.get("balance", 0.0),
+                           symbol=COIN_SYMBOL,
+                           shop_items=shop_items,
+                           user_orders=user_orders,
+                           role=user_data.get("role", "user"))
 
-    return redirect(url_for("dashboard"))
-
-# --- Checkout за Магазина (Показване на форма за адрес) ---
+# --- Checkout страница (Форма за адрес) ---
 @app.route("/shop/checkout/<item_id>", methods=["GET"])
 def shop_checkout(item_id):
     if "user" not in session:
@@ -268,7 +254,7 @@ def shop_checkout(item_id):
     user = users_col.find_one({"username": session["user"]})
 
     if not item or item.get("stock", 0) <= 0:
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("shop"))
 
     return render_template("checkout.html", item=item, balance=user.get("balance", 0.0), symbol=COIN_SYMBOL)
 
@@ -313,9 +299,9 @@ def process_checkout(item_id):
 
             log_transaction(username, "SHOP_MAINTENANCE_FUND", price, f"shop_purchase ({item['title']})")
 
-    return redirect(url_for("dashboard"))
+    return redirect(url_for("shop"))
 
-# --- Админ: Добавяне на Нов Артикул в Магазина ---
+# --- Админ: Добавяне на стока в магазина ---
 @app.route("/admin/add_shop_item", methods=["POST"])
 def admin_add_shop_item():
     if session.get("role") != "admin":
@@ -338,6 +324,34 @@ def admin_add_shop_item():
             "type": item_type,
             "stock": stock
         })
+
+    return redirect(url_for("shop"))
+
+# --- Управление на чакащи транзакции (Admin) ---
+@app.route("/admin/resolve_pending/<tx_id>", methods=["POST"])
+def resolve_pending(tx_id):
+    if session.get("role") != "admin":
+        return redirect(url_for("dashboard"))
+    
+    action = request.form.get("action")
+    tx = pending_tx_col.find_one({"_id": ObjectId(tx_id), "status": "PENDING"})
+    
+    if tx:
+        sender = tx["sender"]
+        recipient = tx["recipient"]
+        amount = tx["amount"]
+        net_amount = tx["net_amount"]
+        fee = tx["fee"]
+
+        if action == "approve":
+            users_col.update_one({"username": recipient}, {"$inc": {"balance": net_amount}})
+            system_col.update_one({"type": "budget"}, {"$inc": {"maintenance_fund": fee}})
+            pending_tx_col.update_one({"_id": ObjectId(tx_id)}, {"$set": {"status": "APPROVED"}})
+            log_transaction(sender, recipient, net_amount, "user_transfer_approved", "APPROVED")
+        elif action == "reject":
+            users_col.update_one({"username": sender}, {"$inc": {"balance": amount}})
+            pending_tx_col.update_one({"_id": ObjectId(tx_id)}, {"$set": {"status": "REJECTED"}})
+            log_transaction(sender, recipient, amount, "user_transfer_rejected", "REJECTED")
 
     return redirect(url_for("dashboard"))
 
