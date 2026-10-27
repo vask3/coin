@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VASK Official Store</title>
+    <style>
+        :root {
+            --bg-main: #0b0f19;
+            --bg-card: #131d31;
+            --border-color: #1e293b;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --accent-blue: #38bdf8;
+            --accent-green: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --purple: #8b5cf6;
+        }
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        .navbar {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 16px 24px; background-color: var(--bg-card);
+            border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 100;
+        }
+        .navbar h1 { font-size: 20px; color: var(--accent-blue); margin: 0; }
+        .nav-links { display: flex; gap: 15px; align-items: center; }
+        .nav-link { color: var(--accent-blue); text-decoration: none; font-size: 14px; font-weight: 600; }
+        .container { max-width: 1000px; margin: 30px auto; padding: 0 20px; box-sizing: border-box; }
+        .card { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 25px; margin-bottom: 25px; }
+        .card h3 { margin-top: 0; color: var(--accent-blue); font-size: 18px; margin-bottom: 15px; }
+        .shop-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; }
+        .shop-item { background: #0b0f19; border: 1px solid var(--border-color); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; justify-content: space-between; }
+        .shop-item h4 { margin: 0 0 8px 0; color: #fff; font-size: 15px; }
+        .shop-item p { color: var(--text-muted); font-size: 12px; margin-bottom: 12px; flex-grow: 1; }
+        .price-tag { font-size: 16px; font-weight: bold; color: var(--accent-green); margin-bottom: 10px; }
+        .btn {
+            background-color: var(--purple); color: white; border: none; padding: 10px;
+            border-radius: 8px; font-weight: 700; cursor: pointer; width: 100%; font-size: 14px; text-align: center; text-decoration: none; display: block; box-sizing: border-box;
+        }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border-color); color: #e2e8f0; font-family: monospace; }
+        th { color: var(--text-muted); }
+    </style>
+</head>
+<body>
+
+    <div class="navbar">
+        <h1>🛒 VASK Official Store</h1>
+        <div class="nav-links">
+            <span style="color: var(--accent-green); font-size: 14px; font-weight: bold;">Баланс: {{ "%.2f"|format(balance) }} {{ symbol }}</span>
+            <a href="/dashboard" class="nav-link">← Към Таблото</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Списък с артикули -->
+        <div class="card">
+            <h3>Налични артикули и услуги</h3>
+            <div class="shop-grid">
+                {% for item in shop_items %}
+                <div class="shop-item">
+                    <div>
+                        <h4>{{ item.title }}</h4>
+                        <p>{{ item.description }}</p>
+                    </div>
+                    <div>
+                        <div class="price-tag">{{ "%.2f"|format(item.price) }} {{ symbol }}</div>
+                        <a href="/shop/checkout/{{ item._id }}" class="btn">Купи Сега</a>
+                    </div>
+                </div>
+                {% else %}
+                <p style="color: var(--text-muted); font-size: 14px;">В момента няма налични артикули в магазина.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 📜 Твоите Поръчки -->
+        {% if user_orders %}
+        <div class="card">
+            <h3>📦 История на вашите поръчки</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Артикул</th>
+                        <th>Цена</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in user_orders %}
+                    <tr>
+                        <td style="color: #fff;">{{ order.item_title }}</td>
+                        <td style="color: var(--accent-green);">{{ order.price }} VASK</td>
+                        <td>
+                            {% if order.status == 'DELIVERED' %}
+                                <span style="color: var(--accent-green);">● Доставено / Активно</span>
+                            {% else %}
+                                <span style="color: var(--warning);">● Обработва се</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Административен контрол (ако е админ) -->
+        {% if role == 'admin' %}
+        <div class="card" style="border: 1px solid var(--warning);">
+            <h3 style="color: var(--warning);">🛠️ Админ: Добави Нов Артикул в Магазина</h3>
+            <form action="/admin/add_shop_item" method="POST">
+                <input type="text" name="title" placeholder="Заглавие на артикула" required style="width:100%; padding:10px; margin-bottom:10px; background:#0b0f19; border:1px solid var(--border-color); color:#fff; border-radius:8px; box-sizing:border-box;">
+                <input type="text" name="description" placeholder="Кратко описание" required style="width:100%; padding:10px; margin-bottom:10px; background:#0b0f19; border:1px solid var(--border-color); color:#fff; border-radius:8px; box-sizing:border-box;">
+                <input type="number" step="0.01" name="price" placeholder="Цена във VASK" required style="width:100%; padding:10px; margin-bottom:10px; background:#0b0f19; border:1px solid var(--border-color); color:#fff; border-radius:8px; box-sizing:border-box;">
+                <input type="number" name="stock" placeholder="Количество (Наличност)" required style="width:100%; padding:10px; margin-bottom:10px; background:#0b0f19; border:1px solid var(--border-color); color:#fff; border-radius:8px; box-sizing:border-box;">
+                <select name="type" style="width:100%; padding:10px; margin-bottom:12px; background:#0b0f19; border:1px solid var(--border-color); color:#fff; border-radius:8px; box-sizing:border-box;">
+                    <option value="digital">💻 Дигитален (VIP, STL файл)</option>
+                    <option value="physical">📦 Физически (Ключодържател, Стикери)</option>
+                </select>
+                <button type="submit" class="btn" style="background-color: var(--warning); color: #000;">Пусни в Магазина</button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+
+</body>
+</html>
