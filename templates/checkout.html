@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Финализиране на поръчка - VASKO Shop</title>
+    <style>
+        :root {
+            --bg-main: #0b0f19;
+            --bg-card: #131d31;
+            --border-color: #1e293b;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --accent-blue: #38bdf8;
+            --accent-green: #10b981;
+            --purple: #8b5cf6;
+        }
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        .container { max-width: 600px; margin: 40px auto; padding: 0 20px; box-sizing: border-box; }
+        .card { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 25px; }
+        .card h2 { margin-top: 0; color: var(--accent-blue); font-size: 20px; }
+        .order-summary {
+            background: #0b0f19; border: 1px solid var(--border-color);
+            border-radius: 12px; padding: 15px; margin-bottom: 20px;
+        }
+        .order-summary h4 { margin: 0 0 5px 0; color: #fff; }
+        .price { font-size: 18px; font-weight: bold; color: var(--accent-green); margin-top: 5px; }
+        .form-control {
+            width: 100%; padding: 12px; background-color: #0b0f19; border: 1px solid var(--border-color);
+            border-radius: 8px; color: white; font-size: 14px; margin-bottom: 12px; box-sizing: border-box;
+        }
+        .form-control:focus { border-color: var(--accent-blue); outline: none; }
+        .btn {
+            background-color: var(--purple); color: white; border: none; padding: 14px;
+            border-radius: 8px; font-weight: 700; cursor: pointer; width: 100%; font-size: 16px; margin-top: 10px;
+        }
+        .btn-cancel {
+            display: block; text-align: center; color: var(--text-muted); text-decoration: none;
+            margin-top: 15px; font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="card">
+            <h2>🛍️ Данни за доставка</h2>
+            
+            <div class="order-summary">
+                <h4>{{ item.title }}</h4>
+                <p style="margin: 0; color: var(--text-muted); font-size: 13px;">{{ item.description }}</p>
+                <div class="price">Към плащане: {{ "%.2f"|format(item.price) }} {{ symbol }}</div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Наличен баланс: {{ "%.5f"|format(balance) }} {{ symbol }}</div>
+            </div>
+
+            <form action="/shop/process_checkout/{{ item._id }}" method="POST">
+                {% if item.type == 'physical' %}
+                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Име и Фамилия</label>
+                    <input type="text" name="full_name" class="form-control" placeholder="Иван Иванов" required>
+
+                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Телефон за връзка</label>
+                    <input type="tel" name="phone" class="form-control" placeholder="0888 123 456" required>
+
+                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Град / Населено място</label>
+                    <input type="text" name="city" class="form-control" placeholder="София / Пловдив / Варна..." required>
+
+                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Точен адрес за доставка (или офис на Еконт/Спиди)</label>
+                    <input type="text" name="address" class="form-control" placeholder="ул. Примерна №1 или Офис на Еконт..." required>
+
+                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Забележка (по желание)</label>
+                    <input type="text" name="notes" class="form-control" placeholder="Допълнителни инструкции към куриера">
+                {% else %}
+                    <p style="font-size: 14px; color: var(--accent-green);">Този артикул е дигитален и ще бъде активиран веднага след потвърждение!</p>
+                {% endif %}
+
+                <button type="submit" class="btn">Потвърди и Плати с VASK</button>
+            </form>
+
+            <a href="/dashboard" class="btn-cancel">Отказ и връщане в таблото</a>
+        </div>
+    </div>
+
+</body>
+</html>
