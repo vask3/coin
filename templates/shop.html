@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="bg">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -53,15 +53,15 @@
     <div class="navbar">
         <h1>🛒 VASK Official Store</h1>
         <div class="nav-links">
-            <span style="color: var(--accent-green); font-size: 14px; font-weight: bold;">Баланс: {{ "%.2f"|format(balance) }} {{ symbol }}</span>
-            <a href="/dashboard" class="nav-link">← Към Таблото</a>
+            <span style="color: var(--accent-green); font-size: 14px; font-weight: bold;">Balance: {{ "%.2f"|format(balance) }} {{ symbol }}</span>
+            <a href="/dashboard" class="nav-link">← Back to Dashboard</a>
         </div>
     </div>
 
     <div class="container">
-        <!-- Списък с артикули -->
+        <!-- Shop items -->
         <div class="card">
-            <h3>Налични артикули и услуги</h3>
+            <h3>Available Items & Services</h3>
             <div class="shop-grid">
                 {% for item in shop_items %}
                 <div class="shop-item">
@@ -71,25 +71,25 @@
                     </div>
                     <div>
                         <div class="price-tag">{{ "%.2f"|format(item.price) }} {{ symbol }}</div>
-                        <a href="/shop/checkout/{{ item._id }}" class="btn">Купи Сега</a>
+                        <a href="/shop/checkout/{{ item._id }}" class="btn">Buy Now</a>
                     </div>
                 </div>
                 {% else %}
-                <p style="color: var(--text-muted); font-size: 14px;">В момента няма налични артикули в магазина.</p>
+                <p style="color: var(--text-muted); font-size: 14px;">No items available in the shop right now.</p>
                 {% endfor %}
             </div>
         </div>
 
-        <!-- 📜 Твоите Поръчки -->
+        <!-- Orders History -->
         {% if user_orders %}
         <div class="card">
-            <h3>📦 История на вашите поръчки</h3>
+            <h3>📦 Order History</h3>
             <table>
                 <thead>
                     <tr>
-                        <th>Артикул</th>
-                        <th>Цена</th>
-                        <th>Статус</th>
+                        <th>Item</th>
+                        <th>Price</th>
+                        <th>Status</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -99,9 +99,9 @@
                         <td style="color: var(--accent-green);">{{ order.price }} VASK</td>
                         <td>
                             {% if order.status == 'DELIVERED' %}
-                                <span style="color: var(--accent-green);">● Доставено / Активно</span>
+                                <span style="color: var(--accent-green);">● Delivered / Active</span>
                             {% else %}
-                                <span style="color: var(--warning);">● Обработва се</span>
+                                <span style="color: var(---warning);">● Processing</span>
                             {% endif %}
                         </td>
                     </tr>
@@ -111,20 +111,20 @@
         </div>
         {% endif %}
 
-        <!-- Административен контрол (ако е админ) -->
+        <!-- Admin Add Item -->
         {% if role == 'admin' %}
         <div class="card" style="border: 1px solid var(--warning);">
-            <h3 style="color: var(--warning);">🛠️ Админ: Добави Нов Артикул в Магазина</h3>
+            <h3 style="color: var(--warning);">🛠️ Admin: Add New Item to Shop</h3>
             <form action="/admin/add_shop_item" method="POST">
-                <input type="text" name="title" placeholder="Заглавие на артикула" required style="width:100%; padding:10px; margin-bottom:10px; background:#0b0f19; border:1px solid var(--border-color); color:#fff; border-radius:8px; box-sizing:border-box;">
-                <input type="text" name="description" placeholder="Кратко описание" required style="width:100%; padding:10px; margin-bottom:10px; background:#0b0f19; border:1px solid var(--border-color); color:#fff; border-radius:8px; box-sizing:border-box;">
-                <input type="number" step="0.01" name="price" placeholder="Цена във VASK" required style="width:100%; padding:10px; margin-bottom:10px; background:#0b0f19; border:1px solid var(--border-color); color:#fff; border-radius:8px; box-sizing:border-box;">
-                <input type="number" name="stock" placeholder="Количество (Наличност)" required style="width:100%; padding:10px; margin-bottom:10px; background:#0b0f19; border:1px solid var(--border-color); color:#fff; border-radius:8px; box-sizing:border-box;">
+                <input type="text" name="title" placeholder="Item Title" required style="width:100%; padding:10px; margin-bottom:10px; background:#0b0f19; border:1px solid var(--border-color); color:#fff; border-radius:8px; box-sizing:border-box;">
+                <input type="text" name="description" placeholder="Description" required style="width:100%; padding:10px; margin-bottom:10px; background:#0b0f19; border:1px solid var(--border-color); color:#fff; border-radius:8px; box-sizing:border-box;">
+                <input type="number" step="0.01" name="price" placeholder="Price in VASK" required style="width:100%; padding:10px; margin-bottom:10px; background:#0b0f19; border:1px solid var(--border-color); color:#fff; border-radius:8px; box-sizing:border-box;">
+                <input type="number" name="stock" placeholder="Stock Quantity" required style="width:100%; padding:10px; margin-bottom:10px; background:#0b0f19; border:1px solid var(--border-color); color:#fff; border-radius:8px; box-sizing:border-box;">
                 <select name="type" style="width:100%; padding:10px; margin-bottom:12px; background:#0b0f19; border:1px solid var(--border-color); color:#fff; border-radius:8px; box-sizing:border-box;">
-                    <option value="digital">💻 Дигитален (VIP, STL файл)</option>
-                    <option value="physical">📦 Физически (Ключодържател, Стикери)</option>
+                    <option value="digital">💻 Digital (VIP, STL File)</option>
+                    <option value="physical">📦 Physical (Keychain, Stickers)</option>
                 </select>
-                <button type="submit" class="btn" style="background-color: var(--warning); color: #000;">Пусни в Магазина</button>
+                <button type="submit" class="btn" style="background-color: var(--warning); color: #000;">Add to Shop</button>
             </form>
         </div>
         {% endif %}
