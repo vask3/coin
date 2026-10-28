@@ -106,7 +106,7 @@
             </div>
         </div>
 
-        <!-- Your Devices -->
+        <!-- Connected Devices -->
         <div class="card">
             <h3>📡 Connected Devices</h3>
             {% if user_devices %}
@@ -146,6 +146,42 @@
             </form>
         </div>
 
+        <!-- Personal Transactions & Dispute Section -->
+        <div class="card">
+            <h3>📜 My Transactions & Appeal / Dispute</h3>
+            {% if user_transactions %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Type / Receiver</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tx in user_transactions %}
+                        <tr>
+                            <td>{{ tx.type }} (to: {{ tx.receiver }})</td>
+                            <td style="color: var(--accent-green);">{{ tx.amount }} VASK</td>
+                            <td>{{ tx.status }}</td>
+                            <td>
+                                <form action="/dispute/submit" method="POST" style="display: flex; gap: 5px; margin: 0;">
+                                    <input type="hidden" name="ref_id" value="{{ tx._id }}">
+                                    <input type="hidden" name="ref_type" value="transaction">
+                                    <input type="text" name="reason" placeholder="Reason..." required style="padding: 4px; font-size: 11px; background: #0b0f19; border: 1px solid var(--border-color); color: #fff; border-radius: 4px; width: 100px;">
+                                    <button type="submit" style="background: var(--danger); border: none; color: white; padding: 4px 8px; font-size: 11px; border-radius: 4px; cursor: pointer;">Appeal</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p style="color: var(--text-muted); font-size: 14px; margin: 0;">No personal transactions found.</p>
+            {% endif %}
+        </div>
+
         <!-- Admin Control Panel -->
         {% if role == 'admin' %}
         <div class="card" style="border: 1px solid rgba(245, 158, 11, 0.5); background: linear-gradient(145deg, #161f33 0%, #0e1422 100%);">
@@ -166,6 +202,7 @@
                 </div>
             </div>
 
+            <!-- Pending Transactions (> 50 VASK) -->
             {% if pending_txs %}
             <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); padding: 15px; border-radius: 12px; margin-bottom: 15px;">
                 <h4 style="margin-top: 0; color: var(--danger); font-size: 14px;">⚠️ Pending Transactions (> 50 VASK)</h4>
@@ -177,6 +214,40 @@
                     </div>
                     <form action="/admin/resolve_pending/{{ ptx._id }}" method="POST" style="margin: 0; display: flex; gap: 5px;">
                         <button type="submit" name="action" value="approve" style="background: var(--accent-green); border: none; color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer;">Approve</button>
+                        <button type="submit" name="action" value="reject" style="background: var(--danger); border: none; color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer;">Reject</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Pending Shop Orders (Чакащи поръчки от магазина) -->
+            {% if pending_orders %}
+            <div style="background: rgba(56, 189, 248, 0.1); border: 1px solid var(--accent-blue); padding: 15px; border-radius: 12px; margin-bottom: 15px;">
+                <h4 style="margin-top: 0; color: var(--accent-blue); font-size: 14px;">📦 Pending Shop Orders (Awaiting Fulfillment)</h4>
+                {% for ord in pending_orders %}
+                <div style="background: #0b0f19; padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 13px;">
+                    <div><strong>Buyer:</strong> {{ ord.buyer }} | <strong>Item:</strong> {{ ord.item_title }} ({{ ord.price }} VASK)</div>
+                    <div style="color: var(--text-muted); font-size: 12px; margin: 4px 0;">
+                        <strong>Ship to:</strong> {{ ord.shipping_details.full_name }}, {{ ord.shipping_details.phone }}, {{ ord.shipping_details.city }}, {{ ord.shipping_details.address }}
+                    </div>
+                    <form action="/admin/resolve_order/{{ ord._id }}" method="POST" style="margin-top: 5px;">
+                        <button type="submit" style="background: var(--accent-green); border: none; color: white; padding: 5px 12px; border-radius: 5px; cursor: pointer; font-weight: bold;">Mark as Delivered / Fulfilled</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- User Appeals / Disputes (Обжалвания) -->
+            {% if all_disputes %}
+            <div style="background: rgba(139, 92, 246, 0.1); border: 1px solid var(--purple); padding: 15px; border-radius: 12px; margin-bottom: 15px;">
+                <h4 style="margin-top: 0; color: var(--purple); font-size: 14px;">⚖️ User Appeals & Disputes</h4>
+                {% for disp in all_disputes %}
+                <div style="background: #0b0f19; padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 13px;">
+                    <div><strong>User:</strong> {{ disp.username }} | <strong>Reason:</strong> "{{ disp.reason }}"</div>
+                    <form action="/admin/resolve_dispute/{{ disp._id }}" method="POST" style="margin-top: 8px; display: flex; gap: 5px;">
+                        <button type="submit" name="action" value="approve" style="background: var(--accent-green); border: none; color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer;">Approve Dispute</button>
                         <button type="submit" name="action" value="reject" style="background: var(--danger); border: none; color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer;">Reject</button>
                     </form>
                 </div>
