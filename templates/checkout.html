@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="bg">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Финализиране на поръчка - VASKO Shop</title>
+    <title>Checkout - VASKO Shop</title>
     <style>
         :root {
             --bg-main: #0b0f19;
@@ -49,39 +49,40 @@
 
     <div class="container">
         <div class="card">
-            <h2>🛍️ Данни за доставка</h2>
+            <h2>🛍️ Shipping Details</h2>
             
             <div class="order-summary">
                 <h4>{{ item.title }}</h4>
                 <p style="margin: 0; color: var(--text-muted); font-size: 13px;">{{ item.description }}</p>
-                <div class="price">Към плащане: {{ "%.2f"|format(item.price) }} {{ symbol }}</div>
-                <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Наличен баланс: {{ "%.5f"|format(balance) }} {{ symbol }}</div>
+                <div class="price">Total Price: {{ "%.2f"|format(item.price) }} {{ symbol }}</div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Available Balance: {{ "%.5f"|format(balance) }} {{ symbol }}</div>
             </div>
 
             <form action="/shop/process_checkout/{{ item._id }}" method="POST">
                 {% if item.type == 'physical' %}
-                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Име и Фамилия</label>
-                    <input type="text" name="full_name" class="form-control" placeholder="Иван Иванов" required>
+                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Full Name</label>
+                    <input type="text" name="full_name" class="form-control" placeholder="John Doe" required>
 
-                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Телефон за връзка</label>
-                    <input type="tel" name="phone" class="form-control" placeholder="0888 123 456" required>
+                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Phone</label>
+                    <input type="tel" name="phone" class="form-control" placeholder="+359 888 123 456" required>
 
-                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Град / Населено място</label>
-                    <input type="text" name="city" class="form-control" placeholder="София / Пловдив / Варна..." required>
+                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">City</label>
+                    <input type="text" name="city" class="form-control" placeholder="Sofia / Plovdiv / Varna..." required>
 
-                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Точен адрес за доставка (или офис на Еконт/Спиди)</label>
-                    <input type="text" name="address" class="form-control" placeholder="ул. Примерна №1 или Офис на Еконт..." required>
+                    <!-- Опростено поле само с надпис Address -->
+                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Address</label>
+                    <input type="text" name="address" class="form-control" placeholder="Street name, street number, apartment..." required>
 
-                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Забележка (по желание)</label>
-                    <input type="text" name="notes" class="form-control" placeholder="Допълнителни инструкции към куриера">
+                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Notes (Optional)</label>
+                    <input type="text" name="notes" class="form-control" placeholder="Additional delivery instructions">
                 {% else %}
-                    <p style="font-size: 14px; color: var(--accent-green);">Този артикул е дигитален и ще бъде активиран веднага след потвърждение!</p>
+                    <p style="font-size: 14px; color: var(--accent-green);">This is a digital item and will be activated instantly upon purchase!</p>
                 {% endif %}
 
-                <button type="submit" class="btn">Потвърди и Плати с VASK</button>
+                <button type="submit" class="btn">Confirm and Pay with VASK</button>
             </form>
 
-            <a href="/shop" class="btn-cancel">Отказ и връщане в магазина</a>
+            <a href="/shop" class="btn-cancel">Cancel and return to shop</a>
         </div>
     </div>
 
