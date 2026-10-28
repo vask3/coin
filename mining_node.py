@@ -25,6 +25,7 @@ devices_col = db["devices"]
 pending_tx_col = db["pending_transactions"]
 shop_col = db["shop_items"]
 orders_col = db["shop_orders"]
+disputes_col = db["disputes"]  # Колекция за обжалвания
 
 COIN_NAME = "VASKO"
 COIN_SYMBOL = "VASK"
@@ -50,38 +51,8 @@ def init_system_budget():
             "difficulty": "000"
         })
     
-    # Презареждане на чисти продукти по подразбиране
+    # ИЗРИЧНО ИЗИСКВАНЕ: Изтриваме абсолютно всички продукти от магазина напълно
     shop_col.delete_many({})
-    shop_col.insert_many([
-        {
-            "title": "VIP Miner Status (30 Days)",
-            "description": "Reduced Gas Fee to 0.5% and special golden profile badge.",
-            "price": 15.0,
-            "type": "digital",
-            "stock": 999
-        },
-        {
-            "title": "3D STL File: VASK Node Enclosure",
-            "description": "Ready 3D printable model for ESP32/Arduino case branded with VASK.",
-            "price": 5.0,
-            "type": "digital",
-            "stock": 999
-        },
-        {
-            "title": "Physical VASK Keychain",
-            "description": "3D printed physical VASK coin keychain (shipping included).",
-            "price": 25.0,
-            "type": "physical",
-            "stock": 50
-        },
-        {
-            "title": "VASK Sticker Pack (5 pcs)",
-            "description": "Waterproof sticker pack for your laptop or ESP32 enclosure.",
-            "price": 10.0,
-            "type": "physical",
-            "stock": 100
-        }
-    ])
 
 init_system_budget()
 
@@ -133,6 +104,8 @@ def register():
             return render_template("register.html", error="Username is already taken!")
 
         mining_key = ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=6))
+        
+        # Гарантираме админ права за твоя потребител
         role = "admin" if username == ADMIN_USERNAME else "user"
 
         user_doc = {
@@ -161,7 +134,14 @@ def login():
         user = users_col.find_one({"username": username})
         if user and check_password_hash(user["password"], password):
             session["user"] = username
-            session["role"] = user.get("role", "user")
+            
+            # Винаги връщаме админ права на твоя потребител при вход
+            if username == ADMIN_USERNAME:
+                users_col.update_one({"username": username}, {"$set": {"role": "admin"}})
+                session["role"] = "admin"
+            else:
+                session["role"] = user.get("role", "user")
+
             users_col.update_one({"username": username}, {"$set": {"last_active": time.time()}})
             return redirect(url_for("dashboard"))
         return render_template("login.html", error="Invalid username or password!")
@@ -180,6 +160,7 @@ def dashboard():
     username = session["user"]
     user_data = users_col.find_one({"username": username}) or {}
     
+    # Желязна гаранция за администратора
     if username == ADMIN_USERNAME and user_data.get("role") != "admin":
         users_col.update_one({"username": username}, {"$set": {"role": "admin"}})
         user_data["role"] = "admin"
@@ -189,13 +170,20 @@ def dashboard():
     total_blocks = sensors_col.count_documents({})
     user_devices = list(devices_col.find({"owner": username}))
     
+    # Лични транзакции и поръчки на потребителя за обжалване
+    user_transactions = list(tx_col.find({"$or": [{"sender": username}, {"receiver": username}]}).sort("timestamp", -1).limit(10))
+    user_orders = list(orders_col.find({"buyer": username}).sort("timestamp", -1))
+
     budget_state = system_col.find_one({"type": "budget"}) or {
         "marketing_budget": 0.0, 
         "maintenance_fund": 0.0, 
         "mining_pool_budget": 0.0
     }
     
+    # Чакащи транзакции, поръчки и обжалвания за администратора
     pending_txs = list(pending_tx_col.find({"status": "PENDING"})) if user_data.get("role") == "admin" else []
+    pending_orders = list(orders_col.find({"status": "PROCESSING"})) if user_data.get("role") == "admin" else []
+    all_disputes = list(disputes_col.find({"status": "PENDING"})) if user_data.get("role") == "admin" else []
 
     return render_template("dashboard.html", 
                            username=username, 
@@ -209,12 +197,61 @@ def dashboard():
                            total_users=total_users,
                            total_blocks=total_blocks,
                            user_devices=user_devices,
+                           user_transactions=user_transactions,
+                           user_orders=user_orders,
                            marketing_budget=budget_state.get("marketing_budget", 0.0),
                            maintenance_fund=budget_state.get("maintenance_fund", 0.0),
                            mining_pool_budget=budget_state.get("mining_pool_budget", 0.0),
                            block_reward=calculate_dynamic_reward(),
-                           pending_txs=pending_txs)
+                           pending_txs=pending_txs,
+                           pending_orders=pending_orders,
+                           all_disputes=all_disputes)
 
+# --- Подаване на обжалване (Dispute) ---
+@app.route("/dispute/submit", methods=["POST"])
+def submit_dispute():
+    if "user" not in session:
+        return redirect(url_for("login"))
+    
+    username = session["user"]
+    ref_id = request.form.get("ref_id", "").strip()
+    ref_type = request.form.get("ref_type", "transaction").strip()
+    reason = request.form.get("reason", "").strip()
+
+    if ref_id and reason:
+        disputes_col.insert_one({
+            "username": username,
+            "ref_id": ref_id,
+            "ref_type": ref_type,
+            "reason": reason,
+            "status": "PENDING",
+            "timestamp": time.time()
+        })
+
+    return redirect(url_for("dashboard"))
+
+# --- Админ: Решаване на обжалване ---
+@app.route("/admin/resolve_dispute/<dispute_id>", methods=["POST"])
+def resolve_dispute(dispute_id):
+    if session.get("role") != "admin":
+        return redirect(url_for("dashboard"))
+    
+    action = request.form.get("action")
+    try:
+        dispute = disputes_col.find_one({"_id": ObjectId(dispute_id)})
+    except Exception:
+        return redirect(url_for("dashboard"))
+
+    if dispute:
+        if action == "approve":
+            disputes_col.update_one({"_id": ObjectId(dispute_id)}, {"$set": {"status": "APPROVED"}})
+            # Може да се добави допълнителна логика за възстановяване на средства тук, ако е нужно
+        elif action == "reject":
+            disputes_col.update_one({"_id": ObjectId(dispute_id)}, {"$set": {"status": "REJECTED"}})
+
+    return redirect(url_for("dashboard"))
+
+# --- Страница на Магазина ---
 @app.route("/shop")
 def shop_page():
     if "user" not in session:
@@ -297,6 +334,7 @@ def process_checkout(item_id):
 
     return redirect(url_for("shop"))
 
+# --- Админ: Добавяне на продукт ---
 @app.route("/admin/add_shop_item", methods=["POST"])
 def admin_add_shop_item():
     if session.get("role") != "admin":
@@ -321,6 +359,19 @@ def admin_add_shop_item():
         })
 
     return redirect(url_for("shop"))
+
+# --- Админ: Одобряване на поръчка (изпращане) ---
+@app.route("/admin/resolve_order/<order_id>", methods=["POST"])
+def resolve_order(order_id):
+    if session.get("role") != "admin":
+        return redirect(url_for("dashboard"))
+    
+    try:
+        orders_col.update_one({"_id": ObjectId(order_id)}, {"$set": {"status": "DELIVERED"}})
+    except Exception:
+        pass
+        
+    return redirect(url_for("dashboard"))
 
 @app.route("/admin/resolve_pending/<tx_id>", methods=["POST"])
 def resolve_pending(tx_id):
