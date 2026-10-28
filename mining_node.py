@@ -166,7 +166,7 @@ def dashboard():
     total_blocks = sensors_col.count_documents({})
     user_devices = list(devices_col.find({"owner": username}))
     
-    user_transactions = list(tx_col.find({"$or": [{"sender": username}, {"receiver": username}]}).sort("timestamp", -1).limit(10))
+    user_transactions = list(tx_col.find({"$or": [{"sender": username}, {"receiver": username}]}).sort("timestamp", -1))
     user_orders = list(orders_col.find({"buyer": username}).sort("timestamp", -1))
 
     budget_state = system_col.find_one({"type": "budget"}) or {
@@ -177,7 +177,7 @@ def dashboard():
     
     pending_txs = list(pending_tx_col.find({"status": "PENDING"})) if user_data.get("role") == "admin" else []
     pending_orders = list(orders_col.find({"status": "PROCESSING"})) if user_data.get("role") == "admin" else []
-    all_disputes = list(disputes_col.find({"status": "PENDING"})) if user_data.get("role") == "admin" else []
+    all_disputes = list(disputes_col.find({"status": "DISPUTED"})) if user_data.get("role") == "admin" else []
 
     return render_template("dashboard.html", 
                            username=username, 
@@ -201,6 +201,7 @@ def dashboard():
                            pending_orders=pending_orders,
                            all_disputes=all_disputes)
 
+# --- Подаване на обжалване със статус DISPUTED ---
 @app.route("/dispute/submit", methods=["POST"])
 def submit_dispute():
     if "user" not in session:
@@ -217,13 +218,13 @@ def submit_dispute():
             "ref_id": ref_id,
             "ref_type": ref_type,
             "reason": reason,
-            "status": "PENDING",
+            "status": "DISPUTED",
             "timestamp": time.time()
         })
 
     return redirect(url_for("dashboard"))
 
-# --- Одобряване на Dispute с автоматично връщане на сумата ---
+# --- Одобряване на обжалване (връщане на средства) ---
 @app.route("/admin/resolve_dispute/<dispute_id>", methods=["POST"])
 def resolve_dispute(dispute_id):
     if session.get("role") != "admin":
@@ -235,8 +236,6 @@ def resolve_dispute(dispute_id):
         if dispute:
             if action == "approve":
                 disputes_col.update_one({"_id": ObjectId(dispute_id)}, {"$set": {"status": "APPROVED"}})
-                
-                # Опитваме се да намерим транзакцията и да възстановим сумата на потребителя
                 ref_id = dispute.get("ref_id")
                 try:
                     tx = tx_col.find_one({"_id": ObjectId(ref_id)})
@@ -252,6 +251,43 @@ def resolve_dispute(dispute_id):
                 disputes_col.update_one({"_id": ObjectId(dispute_id)}, {"$set": {"status": "REJECTED"}})
     except Exception:
         pass
+
+    return redirect(url_for("dashboard"))
+
+# --- Прехвърляне на средства между фондовете ---
+@app.route("/admin/transfer_funds", methods=["POST"])
+def transfer_funds():
+    if session.get("role") != "admin":
+        return redirect(url_for("dashboard"))
+    
+    source = request.form.get("source_fund")
+    target = request.form.get("target_fund")
+    try:
+        amount = float(request.form.get("amount", 0))
+    except (ValueError, TypeError):
+        amount = 0.0
+
+    if source and target and source != target and amount > 0:
+        fund_mapping = {
+            "marketing": "marketing_budget",
+            "maintenance": "maintenance_fund",
+            "pool": "mining_pool_budget"
+        }
+        src_field = fund_mapping.get(source)
+        tgt_field = fund_mapping.get(target)
+
+        if src_field and tgt_field:
+            budget_doc = system_col.find_one({"type": "budget"})
+            if budget_doc and budget_doc.get(src_field, 0.0) >= amount:
+                system_col.update_one(
+                    {"type": "budget"},
+                    {
+                        "$inc": {
+                            src_field: -amount,
+                            tgt_field: amount
+                        }
+                    }
+                )
 
     return redirect(url_for("dashboard"))
 
@@ -335,8 +371,8 @@ def process_checkout(item_id):
                 })
 
                 log_transaction(username, "SHOP_MAINTENANCE_FUND", price, f"shop_purchase ({item['title']})")
-            except Exception as e:
-                print("Checkout Error:", e)
+            except Exception:
+                pass
 
     return redirect(url_for("shop"))
 
@@ -382,7 +418,6 @@ def admin_delete_shop_item(item_id):
         
     return redirect(url_for("shop_page"))
 
-# --- НОВ РУТ: Изтриване на поръчка от администратора ---
 @app.route("/admin/delete_order/<order_id>", methods=["POST"])
 def admin_delete_order(order_id):
     if session.get("role") != "admin":
@@ -530,4 +565,4 @@ def web_miner():
     return render_template("miner.html")
 
 if __name__ == "__main__":
-    app.run("0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
