@@ -50,9 +50,6 @@ def init_system_budget():
             "total_minted": 0.0,
             "difficulty": "000"
         })
-    
-    # Напълно изчистваме магазина по твое изискване
-    shop_col.delete_many({})
 
 init_system_budget()
 
@@ -67,14 +64,17 @@ def calculate_dynamic_reward():
     return round(max(0.0001, base_reward + jitter), 6)
 
 def log_transaction(sender, receiver, amount, tx_type, status="APPROVED"):
-    tx_col.insert_one({
-        "sender": sender,
-        "receiver": receiver,
-        "amount": amount,
-        "type": tx_type,
-        "status": status,
-        "timestamp": time.time()
-    })
+    try:
+        tx_col.insert_one({
+            "sender": str(sender),
+            "receiver": str(receiver),
+            "amount": float(amount),
+            "type": str(tx_type),
+            "status": str(status),
+            "timestamp": time.time()
+        })
+    except Exception:
+        pass
 
 @app.route("/")
 def home():
@@ -230,15 +230,12 @@ def resolve_dispute(dispute_id):
     
     action = request.form.get("action")
     try:
-        dispute_col_obj = disputes_col.find_one({"_id": ObjectId(dispute_id)})
-    except Exception:
-        dispute_col_obj = None
-
-    if dispute_col_obj:
         if action == "approve":
             disputes_col.update_one({"_id": ObjectId(dispute_id)}, {"$set": {"status": "APPROVED"}})
         elif action == "reject":
             disputes_col.update_one({"_id": ObjectId(dispute_id)}, {"$set": {"status": "REJECTED"}})
+    except Exception:
+        pass
 
     return redirect(url_for("dashboard"))
 
@@ -300,31 +297,33 @@ def process_checkout(item_id):
             address = request.form.get("address", "").strip()
             notes = request.form.get("notes", "").strip()
 
-            users_col.update_one({"username": username}, {"$inc": {"balance": -price}})
-            system_col.update_one({"type": "budget"}, {"$inc": {"maintenance_fund": price}})
-            shop_col.update_one({"_id": ObjectId(item_id)}, {"$inc": {"stock": -1}})
+            try:
+                users_col.update_one({"username": username}, {"$inc": {"balance": -price}})
+                system_col.update_one({"type": "budget"}, {"$inc": {"maintenance_fund": price}})
+                shop_col.update_one({"_id": ObjectId(item_id)}, {"$inc": {"stock": -1}})
 
-            orders_col.insert_one({
-                "buyer": username,
-                "item_title": item["title"],
-                "price": price,
-                "type": item["type"],
-                "shipping_details": {
-                    "full_name": full_name,
-                    "phone": phone,
-                    "city": city,
-                    "address": address,
-                    "notes": notes
-                },
-                "status": "PROCESSING" if item["type"] == "physical" else "DELIVERED",
-                "timestamp": time.time()
-            })
+                orders_col.insert_one({
+                    "buyer": username,
+                    "item_title": item["title"],
+                    "price": price,
+                    "type": item["type"],
+                    "shipping_details": {
+                        "full_name": full_name,
+                        "phone": phone,
+                        "city": city,
+                        "address": address,
+                        "notes": notes
+                    },
+                    "status": "PROCESSING" if item["type"] == "physical" else "DELIVERED",
+                    "timestamp": time.time()
+                })
 
-            log_transaction(username, "SHOP_MAINTENANCE_FUND", price, f"shop_purchase ({item['title']})")
+                log_transaction(username, "SHOP_MAINTENANCE_FUND", price, f"shop_purchase ({item['title']})")
+            except Exception:
+                pass
 
     return redirect(url_for("shop"))
 
-# --- Защитен рут за добавяне на продукт без грешка 500 ---
 @app.route("/admin/add_shop_item", methods=["POST"])
 def admin_add_shop_item():
     if session.get("role") != "admin":
@@ -353,6 +352,19 @@ def admin_add_shop_item():
             "stock": stock
         })
 
+    return redirect(url_for("shop_page"))
+
+# --- НОВ РУТ: Админ бутон за изтриване на продукт ---
+@app.route("/admin/delete_shop_item/<item_id>", methods=["POST"])
+def admin_delete_shop_item(item_id):
+    if session.get("role") != "admin":
+        return redirect(url_for("dashboard"))
+    
+    try:
+        shop_col.delete_one({"_id": ObjectId(item_id)})
+    except Exception:
+        pass
+        
     return redirect(url_for("shop_page"))
 
 @app.route("/admin/resolve_order/<order_id>", methods=["POST"])
