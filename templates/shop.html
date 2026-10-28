@@ -43,6 +43,9 @@
             background-color: var(--purple); color: white; border: none; padding: 10px;
             border-radius: 8px; font-weight: 700; cursor: pointer; width: 100%; font-size: 14px; text-align: center; text-decoration: none; display: block; box-sizing: border-box;
         }
+        .btn-delete {
+            background-color: var(--danger); margin-top: 8px; font-size: 12px; padding: 6px;
+        }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
         th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border-color); color: #e2e8f0; font-family: monospace; }
         th { color: var(--text-muted); }
@@ -72,6 +75,13 @@
                     <div>
                         <div class="price-tag">{{ "%.2f"|format(item.price) }} {{ symbol }}</div>
                         <a href="/shop/checkout/{{ item._id }}" class="btn">Buy Now</a>
+                        
+                        <!-- Админ бутон за изтриване на продукт -->
+                        {% if role == 'admin' %}
+                        <form action="/admin/delete_shop_item/{{ item._id }}" method="POST" style="margin: 0;">
+                            <button type="submit" class="btn btn-delete">Delete Item</button>
+                        </form>
+                        {% endif %}
                     </div>
                 </div>
                 {% else %}
