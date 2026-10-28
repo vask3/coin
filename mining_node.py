@@ -25,7 +25,7 @@ devices_col = db["devices"]
 pending_tx_col = db["pending_transactions"]
 shop_col = db["shop_items"]
 orders_col = db["shop_orders"]
-disputes_col = db["disputes"]  # Колекция за обжалвания
+disputes_col = db["disputes"]
 
 COIN_NAME = "VASKO"
 COIN_SYMBOL = "VASK"
@@ -51,7 +51,7 @@ def init_system_budget():
             "difficulty": "000"
         })
     
-    # ИЗРИЧНО ИЗИСКВАНЕ: Изтриваме абсолютно всички продукти от магазина напълно
+    # Напълно изчистваме магазина по твое изискване
     shop_col.delete_many({})
 
 init_system_budget()
@@ -104,8 +104,6 @@ def register():
             return render_template("register.html", error="Username is already taken!")
 
         mining_key = ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=6))
-        
-        # Гарантираме админ права за твоя потребител
         role = "admin" if username == ADMIN_USERNAME else "user"
 
         user_doc = {
@@ -135,7 +133,6 @@ def login():
         if user and check_password_hash(user["password"], password):
             session["user"] = username
             
-            # Винаги връщаме админ права на твоя потребител при вход
             if username == ADMIN_USERNAME:
                 users_col.update_one({"username": username}, {"$set": {"role": "admin"}})
                 session["role"] = "admin"
@@ -160,7 +157,6 @@ def dashboard():
     username = session["user"]
     user_data = users_col.find_one({"username": username}) or {}
     
-    # Желязна гаранция за администратора
     if username == ADMIN_USERNAME and user_data.get("role") != "admin":
         users_col.update_one({"username": username}, {"$set": {"role": "admin"}})
         user_data["role"] = "admin"
@@ -170,7 +166,6 @@ def dashboard():
     total_blocks = sensors_col.count_documents({})
     user_devices = list(devices_col.find({"owner": username}))
     
-    # Лични транзакции и поръчки на потребителя за обжалване
     user_transactions = list(tx_col.find({"$or": [{"sender": username}, {"receiver": username}]}).sort("timestamp", -1).limit(10))
     user_orders = list(orders_col.find({"buyer": username}).sort("timestamp", -1))
 
@@ -180,7 +175,6 @@ def dashboard():
         "mining_pool_budget": 0.0
     }
     
-    # Чакащи транзакции, поръчки и обжалвания за администратора
     pending_txs = list(pending_tx_col.find({"status": "PENDING"})) if user_data.get("role") == "admin" else []
     pending_orders = list(orders_col.find({"status": "PROCESSING"})) if user_data.get("role") == "admin" else []
     all_disputes = list(disputes_col.find({"status": "PENDING"})) if user_data.get("role") == "admin" else []
@@ -207,7 +201,6 @@ def dashboard():
                            pending_orders=pending_orders,
                            all_disputes=all_disputes)
 
-# --- Подаване на обжалване (Dispute) ---
 @app.route("/dispute/submit", methods=["POST"])
 def submit_dispute():
     if "user" not in session:
@@ -230,7 +223,6 @@ def submit_dispute():
 
     return redirect(url_for("dashboard"))
 
-# --- Админ: Решаване на обжалване ---
 @app.route("/admin/resolve_dispute/<dispute_id>", methods=["POST"])
 def resolve_dispute(dispute_id):
     if session.get("role") != "admin":
@@ -238,20 +230,18 @@ def resolve_dispute(dispute_id):
     
     action = request.form.get("action")
     try:
-        dispute = disputes_col.find_one({"_id": ObjectId(dispute_id)})
+        dispute_col_obj = disputes_col.find_one({"_id": ObjectId(dispute_id)})
     except Exception:
-        return redirect(url_for("dashboard"))
+        dispute_col_obj = None
 
-    if dispute:
+    if dispute_col_obj:
         if action == "approve":
             disputes_col.update_one({"_id": ObjectId(dispute_id)}, {"$set": {"status": "APPROVED"}})
-            # Може да се добави допълнителна логика за възстановяване на средства тук, ако е нужно
         elif action == "reject":
             disputes_col.update_one({"_id": ObjectId(dispute_id)}, {"$set": {"status": "REJECTED"}})
 
     return redirect(url_for("dashboard"))
 
-# --- Страница на Магазина ---
 @app.route("/shop")
 def shop_page():
     if "user" not in session:
@@ -334,7 +324,7 @@ def process_checkout(item_id):
 
     return redirect(url_for("shop"))
 
-# --- Админ: Добавяне на продукт ---
+# --- Защитен рут за добавяне на продукт без грешка 500 ---
 @app.route("/admin/add_shop_item", methods=["POST"])
 def admin_add_shop_item():
     if session.get("role") != "admin":
@@ -343,11 +333,16 @@ def admin_add_shop_item():
     title = request.form.get("title", "").strip()
     description = request.form.get("description", "").strip()
     item_type = request.form.get("type", "digital")
+    
     try:
         price = float(request.form.get("price", 0))
+    except (ValueError, TypeError):
+        price = 0.0
+
+    try:
         stock = int(request.form.get("stock", 1))
-    except ValueError:
-        price, stock = 0.0, 0
+    except (ValueError, TypeError):
+        stock = 1
 
     if title and price > 0:
         shop_col.insert_one({
@@ -358,9 +353,8 @@ def admin_add_shop_item():
             "stock": stock
         })
 
-    return redirect(url_for("shop"))
+    return redirect(url_for("shop_page"))
 
-# --- Админ: Одобряване на поръчка (изпращане) ---
 @app.route("/admin/resolve_order/<order_id>", methods=["POST"])
 def resolve_order(order_id):
     if session.get("role") != "admin":
