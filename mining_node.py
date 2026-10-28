@@ -50,7 +50,7 @@ def init_system_budget():
             "difficulty": "000"
         })
     
-    # Изчистваме старите продукти и слагаме чисти нови по подразбиране
+    # Презареждане на чисти продукти по подразбиране
     shop_col.delete_many({})
     shop_col.insert_many([
         {
@@ -180,7 +180,6 @@ def dashboard():
     username = session["user"]
     user_data = users_col.find_one({"username": username}) or {}
     
-    # Гарантираме си, че създателят винаги е администратор
     if username == ADMIN_USERNAME and user_data.get("role") != "admin":
         users_col.update_one({"username": username}, {"$set": {"role": "admin"}})
         user_data["role"] = "admin"
