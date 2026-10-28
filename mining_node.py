@@ -32,8 +32,8 @@ ADMIN_USERNAME = "vasko_creator"
 WELCOME_BONUS = 5.0  
 
 STAKING_DAILY_RATE = 0.001
-NETWORK_FEE_PERCENT = 0.01  # 1% Gas Fee
-PENDING_THRESHOLD = 50.0    # Праг за ръчно одобрение
+NETWORK_FEE_PERCENT = 0.01  
+PENDING_THRESHOLD = 50.0    
 
 MAX_SUPPLY = 2000000.0
 MARKETING_RESERVE_INIT = 200000.0
@@ -50,37 +50,38 @@ def init_system_budget():
             "difficulty": "000"
         })
     
-    if shop_col.count_documents({}) == 0:
-        shop_col.insert_many([
-            {
-                "title": "VIP Miner Status (30 дни)",
-                "description": "Намалена Gas Fee такса на 0.5% и специален златен профил.",
-                "price": 15.0,
-                "type": "digital",
-                "stock": 999
-            },
-            {
-                "title": "3D STL Файл: VASK Node Enclosure",
-                "description": "Готов 3D модел за кутийка за ESP32/Arduino, брандирана с VASK.",
-                "price": 5.0,
-                "type": "digital",
-                "stock": 999
-            },
-            {
-                "title": "Физически VASK Ключодържател",
-                "description": "3D принтиран ключодържател с монетата VASK (включва доставка).",
-                "price": 25.0,
-                "type": "physical",
-                "stock": 50
-            },
-            {
-                "title": "VASK Sticker Pack (5 бр.)",
-                "description": "Комплект водоустойчиви стикери за твоя лаптоп или ESP32 кейс.",
-                "price": 10.0,
-                "type": "physical",
-                "stock": 100
-            }
-        ])
+    # Изчистваме старите продукти и слагаме чисти нови по подразбиране
+    shop_col.delete_many({})
+    shop_col.insert_many([
+        {
+            "title": "VIP Miner Status (30 Days)",
+            "description": "Reduced Gas Fee to 0.5% and special golden profile badge.",
+            "price": 15.0,
+            "type": "digital",
+            "stock": 999
+        },
+        {
+            "title": "3D STL File: VASK Node Enclosure",
+            "description": "Ready 3D printable model for ESP32/Arduino case branded with VASK.",
+            "price": 5.0,
+            "type": "digital",
+            "stock": 999
+        },
+        {
+            "title": "Physical VASK Keychain",
+            "description": "3D printed physical VASK coin keychain (shipping included).",
+            "price": 25.0,
+            "type": "physical",
+            "stock": 50
+        },
+        {
+            "title": "VASK Sticker Pack (5 pcs)",
+            "description": "Waterproof sticker pack for your laptop or ESP32 enclosure.",
+            "price": 10.0,
+            "type": "physical",
+            "stock": 100
+        }
+    ])
 
 init_system_budget()
 
@@ -93,21 +94,6 @@ def calculate_dynamic_reward():
     base_reward = 0.00025 + (diff_length * 0.00002) 
     jitter = random.uniform(-0.00002, 0.00003)
     return round(max(0.0001, base_reward + jitter), 6)
-
-def adjust_difficulty():
-    recent_blocks = list(sensors_col.find().sort("timestamp", -1).limit(4))
-    if len(recent_blocks) >= 4:
-        t_newest = recent_blocks[0]["timestamp"]
-        t_oldest = recent_blocks[3]["timestamp"]
-        avg_time = (t_newest - t_oldest) / 3.0
-        
-        current_diff = get_current_difficulty()
-        if avg_time < 6.0 and len(current_diff) < 6:
-            new_diff = current_diff + "0"
-            system_col.update_one({"type": "budget"}, {"$set": {"difficulty": new_diff}})
-        elif avg_time > 25.0 and len(current_diff) > 2:
-            new_diff = current_diff[:-1]
-            system_col.update_one({"type": "budget"}, {"$set": {"difficulty": new_diff}})
 
 def log_transaction(sender, receiver, amount, tx_type, status="APPROVED"):
     tx_col.insert_one({
@@ -141,10 +127,10 @@ def register():
         password = request.form.get("password", "")
 
         if not username or not password:
-            return render_template("register.html", error="Всички полета са задължителни!")
+            return render_template("register.html", error="All fields are required!")
 
         if users_col.find_one({"username": username}):
-            return render_template("register.html", error="Потребителското име е заето!")
+            return render_template("register.html", error="Username is already taken!")
 
         mining_key = ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=6))
         role = "admin" if username == ADMIN_USERNAME else "user"
@@ -178,7 +164,7 @@ def login():
             session["role"] = user.get("role", "user")
             users_col.update_one({"username": username}, {"$set": {"last_active": time.time()}})
             return redirect(url_for("dashboard"))
-        return render_template("login.html", error="Невалидно име или парола!")
+        return render_template("login.html", error="Invalid username or password!")
     return render_template("login.html")
 
 @app.route("/logout")
@@ -194,6 +180,12 @@ def dashboard():
     username = session["user"]
     user_data = users_col.find_one({"username": username}) or {}
     
+    # Гарантираме си, че създателят винаги е администратор
+    if username == ADMIN_USERNAME and user_data.get("role") != "admin":
+        users_col.update_one({"username": username}, {"$set": {"role": "admin"}})
+        user_data["role"] = "admin"
+        session["role"] = "admin"
+
     total_users = users_col.count_documents({})
     total_blocks = sensors_col.count_documents({})
     user_devices = list(devices_col.find({"owner": username}))
@@ -204,7 +196,7 @@ def dashboard():
         "mining_pool_budget": 0.0
     }
     
-    pending_txs = list(pending_tx_col.find({"status": "PENDING"})) if session.get("role") == "admin" else []
+    pending_txs = list(pending_tx_col.find({"status": "PENDING"})) if user_data.get("role") == "admin" else []
 
     return render_template("dashboard.html", 
                            username=username, 
@@ -224,7 +216,6 @@ def dashboard():
                            block_reward=calculate_dynamic_reward(),
                            pending_txs=pending_txs)
 
-# --- Отделна страница за Магазина (/shop) ---
 @app.route("/shop")
 def shop_page():
     if "user" not in session:
@@ -244,13 +235,16 @@ def shop_page():
                            user_orders=user_orders,
                            role=user_data.get("role", "user"))
 
-# --- Checkout страница (Форма за адрес) ---
 @app.route("/shop/checkout/<item_id>", methods=["GET"])
 def shop_checkout(item_id):
     if "user" not in session:
         return redirect(url_for("login"))
 
-    item = shop_col.find_one({"_id": ObjectId(item_id)})
+    try:
+        item = shop_col.find_one({"_id": ObjectId(item_id)})
+    except Exception:
+        return redirect(url_for("shop"))
+        
     user = users_col.find_one({"username": session["user"]})
 
     if not item or item.get("stock", 0) <= 0:
@@ -258,14 +252,17 @@ def shop_checkout(item_id):
 
     return render_template("checkout.html", item=item, balance=user.get("balance", 0.0), symbol=COIN_SYMBOL)
 
-# --- Обработка на плащането и данните за доставка ---
 @app.route("/shop/process_checkout/<item_id>", methods=["POST"])
 def process_checkout(item_id):
     if "user" not in session:
         return redirect(url_for("login"))
 
     username = session["user"]
-    item = shop_col.find_one({"_id": ObjectId(item_id)})
+    try:
+        item = shop_col.find_one({"_id": ObjectId(item_id)})
+    except Exception:
+        return redirect(url_for("shop"))
+        
     user = users_col.find_one({"username": username})
 
     if item and user and item.get("stock", 0) > 0:
@@ -301,7 +298,6 @@ def process_checkout(item_id):
 
     return redirect(url_for("shop"))
 
-# --- Админ: Добавяне на стока в магазина ---
 @app.route("/admin/add_shop_item", methods=["POST"])
 def admin_add_shop_item():
     if session.get("role") != "admin":
@@ -327,14 +323,16 @@ def admin_add_shop_item():
 
     return redirect(url_for("shop"))
 
-# --- Управление на чакащи транзакции (Admin) ---
 @app.route("/admin/resolve_pending/<tx_id>", methods=["POST"])
 def resolve_pending(tx_id):
     if session.get("role") != "admin":
         return redirect(url_for("dashboard"))
     
     action = request.form.get("action")
-    tx = pending_tx_col.find_one({"_id": ObjectId(tx_id), "status": "PENDING"})
+    try:
+        tx = pending_tx_col.find_one({"_id": ObjectId(tx_id), "status": "PENDING"})
+    except Exception:
+        return redirect(url_for("dashboard"))
     
     if tx:
         sender = tx["sender"]
@@ -408,7 +406,7 @@ def submit_block():
 
     user = users_col.find_one({"username": username})
     if not user or user.get("mining_key") != mining_key:
-        return jsonify({"status": "REJECTED", "message": "Невалиден ключ!"}), 401
+        return jsonify({"status": "REJECTED", "message": "Invalid key!"}), 401
 
     combined = target_string + nonce
     result_hash = hashlib.sha256(combined.encode()).hexdigest()
@@ -439,10 +437,9 @@ def submit_block():
             upsert=True
         )
 
-        adjust_difficulty()
-        return jsonify({"status": "ACCEPTED", "message": f"🎉 Успешен блок! Награда: {miner_reward} {COIN_SYMBOL}"})
+        return jsonify({"status": "ACCEPTED", "message": f"🎉 Block mined successfully! Reward: {miner_reward} {COIN_SYMBOL}"})
     else:
-        return jsonify({"status": "REJECTED", "message": "PoW грешен хеш!"}), 400
+        return jsonify({"status": "REJECTED", "message": "PoW incorrect hash!"}), 400
 
 @app.route("/miner")
 def web_miner():
