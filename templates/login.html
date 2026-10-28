@@ -1,149 +1,63 @@
 <!DOCTYPE html>
-<html lang="bg">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Вход - VASKO (VASK)</title>
+    <title>Login - VASKO Ecosystem</title>
     <style>
         :root {
-            --bg-main: #0d1117;
-            --bg-card: #161b22;
-            --border-color: #30363d;
-            --text-main: #c9d1d9;
-            --text-muted: #8b949e;
-            --accent-blue: #58a6ff;
-            --accent-green: #238636;
-            --accent-green-hover: #2ea043;
-            --danger: #f85149;
+            --bg-main: #0b0f19;
+            --bg-card: #131d31;
+            --border-color: #1e293b;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --accent-blue: #38bdf8;
+            --accent-green: #10b981;
+            --danger: #ef4444;
         }
         body {
-            margin: 0;
-            padding: 0;
+            margin: 0; padding: 0;
             background-color: var(--bg-main);
             color: var(--text-main);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+            display: flex; justify-content: center; align-items: center; height: 100vh;
         }
-        .login-container {
-            background-color: var(--bg-card);
-            border: 1px solid var(--border-color);
-            padding: 40px;
-            border-radius: 12px;
-            width: 100%;
-            max-width: 400px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-            text-align: center;
+        .card {
+            background-color: var(--bg-card); border: 1px solid var(--border-color);
+            border-radius: 16px; padding: 30px; width: 100%; max-width: 400px; box-sizing: border-box;
         }
-        .login-container h2 {
-            color: var(--accent-blue);
-            margin-bottom: 25px;
-            font-size: 26px;
+        h2 { margin-top: 0; color: var(--accent-blue); font-size: 22px; text-align: center; margin-bottom: 20px; }
+        .form-control {
+            width: 100%; padding: 12px; background-color: #0b0f19; border: 1px solid var(--border-color);
+            border-radius: 8px; color: white; font-size: 14px; margin-bottom: 15px; box-sizing: border-box;
         }
-        .error-message {
-            background-color: rgba(248, 81, 73, 0.15);
-            border: 1px solid var(--danger);
-            color: #ff7b72;
-            padding: 10px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            font-size: 14px;
+        .btn {
+            background-color: var(--accent-green); color: white; border: none; padding: 12px;
+            border-radius: 8px; font-weight: 700; cursor: pointer; width: 100%; font-size: 15px;
         }
-        .form-group {
-            margin-bottom: 20px;
-            text-align: left;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 14px;
-            color: var(--text-muted);
-        }
-        .form-group input {
-            width: 100%;
-            padding: 12px;
-            background-color: var(--bg-main);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            color: #ffffff;
-            font-size: 16px;
-            box-sizing: border-box;
-            transition: border-color 0.3s;
-        }
-        .form-group input:focus {
-            outline: none;
-            border-color: var(--accent-blue);
-        }
-        .btn-submit {
-            width: 100%;
-            padding: 12px;
-            background-color: var(--accent-green);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        .btn-submit:hover {
-            background-color: var(--accent-green-hover);
-        }
-        .footer-links {
-            margin-top: 20px;
-            font-size: 14px;
-            color: var(--text-muted);
-        }
-        .footer-links a {
-            color: var(--accent-blue);
-            text-decoration: none;
-        }
-        .footer-links a:hover {
-            text-decoration: underline;
-        }
-        .back-home {
-            display: block;
-            margin-top: 15px;
-            font-size: 13px;
-            color: var(--text-muted);
-            text-decoration: none;
-        }
-        .back-home:hover {
-            color: var(--text-main);
-        }
+        .error { background-color: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); color: var(--danger); padding: 10px; border-radius: 8px; font-size: 13px; margin-bottom: 15px; text-align: center; }
+        .footer-link { text-align: center; margin-top: 15px; font-size: 13px; color: var(--text-muted); }
+        .footer-link a { color: var(--accent-blue); text-decoration: none; }
     </style>
 </head>
 <body>
 
-    <div class="login-container">
-        <h2>🪙 Вход в системата</h2>
+    <div class="card">
+        <h2>🔑 Node Login</h2>
         
-        <!-- Извеждане на грешка при грешен вход -->
         {% if error %}
-            <div class="error-message">{{ error }}</div>
+            <div class="error">{{ error }}</div>
         {% endif %}
 
-        <form method="POST" action="/login">
-            <div class="form-group">
-                <label for="username">Потребителско име</label>
-                <input type="text" id="username" name="username" placeholder="Въведете име..." required>
-            </div>
-
-            <div class="form-group">
-                <label for="password">Парола</label>
-                <input type="password" id="password" name="password" placeholder="••••••••" required>
-            </div>
-
-            <button type="submit" class="btn-submit">Вход</button>
+        <form action="/login" method="POST">
+            <input type="text" name="username" class="form-control" placeholder="Username" required>
+            <input type="password" name="password" class="form-control" placeholder="Password" required>
+            <button type="submit" class="btn">Login</button>
         </form>
 
-        <div class="footer-links">
-            Нямаш акаунт? <a href="/register">Регистрирай се</a>
+        <div class="footer-link">
+            Don't have an account? <a href="/register">Register here</a>
         </div>
-        
-        <a href="/" class="back-home">← Назад към началната страница</a>
     </div>
 
 </body>
