@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="bg">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Табло - VASKO (VASK)</title>
+    <title>Dashboard - VASKO (VASK)</title>
     <style>
         :root {
             --bg-main: #0b0f19;
@@ -71,59 +71,59 @@
 
     <div class="navbar">
         <h1>🪙 VASKO Ecosystem</h1>
-        <a href="/logout" class="logout-btn">Изход</a>
+        <a href="/logout" class="logout-btn">Logout</a>
     </div>
 
     <div class="container">
         <div class="welcome-banner">
-            <h2>Добре дошъл, {{ username }}! 👋</h2>
-            <p>Твоята децентрализирана IoT екосистема е активна.</p>
+            <h2>Welcome back, {{ username }}! 👋</h2>
+            <p>Your decentralized IoT ecosystem node is active.</p>
         </div>
 
         <div class="stats-grid">
             <div class="stat-card" style="border-color: var(--accent-green);">
-                <div style="color: var(--text-muted); font-size: 13px;">🎯 Динамична Награда</div>
+                <div style="color: var(--text-muted); font-size: 13px;">🎯 Dynamic Reward</div>
                 <div class="stat-value" style="color: var(--accent-green); font-size: 19px;">~{{ "%.5f"|format(block_reward) }} VASK</div>
             </div>
             <div class="stat-card">
-                <div style="color: var(--text-muted); font-size: 13px;">⛓️ Общо блокове</div>
+                <div style="color: var(--text-muted); font-size: 13px;">⛓️ Total Blocks</div>
                 <div class="stat-value">{{ total_blocks }}</div>
             </div>
             <div class="stat-card" style="border-color: var(--accent-blue);">
-                <div style="color: var(--text-muted); font-size: 13px;">⚡ Трудност</div>
+                <div style="color: var(--text-muted); font-size: 13px;">⚡ Difficulty</div>
                 <div class="stat-value" style="color: var(--accent-blue); font-family: monospace;">{{ difficulty }}</div>
             </div>
         </div>
 
         <div class="grid">
             <div class="card" style="margin-bottom: 0;">
-                <h3>💰 Наличен баланс</h3>
+                <h3>💰 Available Balance</h3>
                 <div class="balance-value">{{ "%.5f"|format(balance) }} <span style="font-size: 18px; color: var(--text-muted); font-weight: 400;">{{ symbol }}</span></div>
             </div>
             <div class="card" style="margin-bottom: 0;">
-                <h3>🔑 Твой Миньорски ключ</h3>
+                <h3>🔑 Your Mining Key</h3>
                 <div class="key-box">{{ mining_key }}</div>
             </div>
         </div>
 
-        <!-- 📡 Секция "Your Devices" (Твои устройства) -->
+        <!-- Your Devices -->
         <div class="card">
-            <h3>📡 Вашите свързани устройства (Your Devices)</h3>
+            <h3>📡 Connected Devices</h3>
             {% if user_devices %}
                 <table>
                     <thead>
                         <tr>
-                            <th>ID на Устройство</th>
-                            <th>Статус</th>
-                            <th>Изкопани блокове</th>
-                            <th>Добити VASK</th>
+                            <th>Device ID</th>
+                            <th>Status</th>
+                            <th>Blocks Mined</th>
+                            <th>Earned VASK</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for dev in user_devices %}
                         <tr>
                             <td style="color: var(--accent-blue);">{{ dev.device_id }}</td>
-                            <td><span style="color: var(--accent-green);">● Активно</span></td>
+                            <td><span style="color: var(--accent-green);">● Active</span></td>
                             <td>{{ dev.blocks_mined }}</td>
                             <td style="color: var(--accent-green);">{{ "%.5f"|format(dev.total_mined) }} VASK</td>
                         </tr>
@@ -131,68 +131,44 @@
                     </tbody>
                 </table>
             {% else %}
-                <p style="color: var(--text-muted); font-size: 14px; margin: 0;">Няма регистрирани устройства. Свържете уеб миньор или хардуерен нод с вашия ключ.</p>
+                <p style="color: var(--text-muted); font-size: 14px; margin: 0;">No registered devices. Connect a web miner or hardware node using your key.</p>
             {% endif %}
         </div>
 
-        <!-- 🎁 Активиране на Промокод -->
+        <!-- Send VASK -->
         <div class="card">
-            <h3>🎁 Активирай Промокод</h3>
-            <form action="/redeem_promo" method="POST">
-                <input type="text" name="promo_code" class="form-control" placeholder="Въведи промокод (напр. VASKO10)" required style="text-transform: uppercase;">
-                <button type="submit" class="btn" style="background-color: var(--purple);">Вземи Награда</button>
-            </form>
-        </div>
-
-        <!-- 💸 Превод между Потребители -->
-        <div class="card">
-            <h3>💸 Изпрати VASK на Потребител</h3>
+            <h3>💸 Transfer VASK to User</h3>
             <form action="/transfer" method="POST">
-                <input type="text" name="recipient" class="form-control" placeholder="Получател (потребителско име)" required>
-                <input type="number" step="0.00001" name="amount" class="form-control" placeholder="Сума за изпращане" required>
-                <p style="font-size: 11px; color: var(--text-muted); margin-top: -5px;">* 1% такса отива във Фонд Поддръжка. Суми над 50 VASK изискват ръчно одобрение.</p>
-                <button type="submit" class="btn" style="background-color: var(--accent-blue); color: #000;">Изпрати Сума</button>
+                <input type="text" name="recipient" class="form-control" placeholder="Recipient username" required>
+                <input type="number" step="0.00001" name="amount" class="form-control" placeholder="Amount to send" required>
+                <p style="font-size: 11px; color: var(--text-muted); margin-top: -5px;">* 1% fee goes to Maintenance Fund. Transfers over 50 VASK require manual admin approval.</p>
+                <button type="submit" class="btn" style="background-color: var(--accent-blue); color: #000;">Send Amount</button>
             </form>
         </div>
 
-        <!-- Staking Секция -->
-        <div class="card">
-            <h3>🌱 Staking / Пасивен доход</h3>
-            <div style="background: #0b0f19; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 14px;">
-                Заключени: <strong style="color: var(--accent-green);">{{ "%.5f"|format(staked_balance) }} {{ symbol }}</strong>
-            </div>
-            <form action="/staking/deposit" method="POST" style="margin-bottom: 10px;">
-                <input type="number" step="0.00001" name="amount" class="form-control" placeholder="Сума за стейкинг" required>
-                <button type="submit" class="btn">Депозирай</button>
-            </form>
-            <form action="/staking/claim" method="POST">
-                <button type="submit" class="btn" style="background-color: var(--accent-blue); color: #000;">Прибери лихва</button>
-            </form>
-        </div>
-
-        <!-- Административен панел (само за админ) -->
+        <!-- Admin Control Panel -->
         {% if role == 'admin' %}
         <div class="card" style="border: 1px solid rgba(245, 158, 11, 0.5); background: linear-gradient(145deg, #161f33 0%, #0e1422 100%);">
-            <h3 style="color: var(--warning);">🛡️ Административен Контрол & Фондове</h3>
+            <h3 style="color: var(--warning);">🛡️ Admin Control & Funds</h3>
             
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 20px; background: #0b0f19; padding: 15px; border-radius: 12px;">
                 <div>
-                    <span style="font-size: 11px; color: var(--text-muted); display: block;">📢 Маркетинг фонд</span>
+                    <span style="font-size: 11px; color: var(--text-muted); display: block;">📢 Marketing Fund</span>
                     <strong style="color: var(--accent-green); font-size: 14px;">{{ "%.2f"|format(marketing_budget) }} VASK</strong>
                 </div>
                 <div>
-                    <span style="font-size: 11px; color: var(--text-muted); display: block;">🛠️ Фонд Поддръжка</span>
+                    <span style="font-size: 11px; color: var(--text-muted); display: block;">🛠️ Maintenance Fund</span>
                     <strong style="color: var(--accent-blue); font-size: 14px;">{{ "%.5f"|format(maintenance_fund) }} VASK</strong>
                 </div>
                 <div>
-                    <span style="font-size: 11px; color: var(--text-muted); display: block;">⛏️ Пул за награди</span>
+                    <span style="font-size: 11px; color: var(--text-muted); display: block;">⛏️ Reward Pool</span>
                     <strong style="color: var(--warning); font-size: 14px;">{{ "%.2f"|format(mining_pool_budget) }} VASK</strong>
                 </div>
             </div>
 
             {% if pending_txs %}
             <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); padding: 15px; border-radius: 12px; margin-bottom: 15px;">
-                <h4 style="margin-top: 0; color: var(--danger); font-size: 14px;">⚠️ Чакащи транзакции за одобрение (> 50 VASK)</h4>
+                <h4 style="margin-top: 0; color: var(--danger); font-size: 14px;">⚠️ Pending Transactions (> 50 VASK)</h4>
                 {% for ptx in pending_txs %}
                 <div style="display: flex; justify-content: space-between; align-items: center; background: #0b0f19; padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 13px;">
                     <div>
@@ -200,8 +176,8 @@
                         <span style="color: var(--warning);">{{ ptx.amount }} VASK</span>
                     </div>
                     <form action="/admin/resolve_pending/{{ ptx._id }}" method="POST" style="margin: 0; display: flex; gap: 5px;">
-                        <button type="submit" name="action" value="approve" style="background: var(--accent-green); border: none; color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer;">Одобри</button>
-                        <button type="submit" name="action" value="reject" style="background: var(--danger); border: none; color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer;">Откажи</button>
+                        <button type="submit" name="action" value="approve" style="background: var(--accent-green); border: none; color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer;">Approve</button>
+                        <button type="submit" name="action" value="reject" style="background: var(--danger); border: none; color: white; padding: 5px 10px; border-radius: 5px; cursor: pointer;">Reject</button>
                     </form>
                 </div>
                 {% endfor %}
@@ -211,10 +187,10 @@
         {% endif %}
 
         <div class="card">
-            <h3>⚡ Управление</h3>
+            <h3>⚡ Quick Navigation</h3>
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
-                <a href="/miner" class="miner-link">🚀 Уеб Миньор</a>
-                <a href="/shop" class="miner-link" style="background: var(--purple);">🛒 Магазин</a>
+                <a href="/miner" class="miner-link">🚀 Web Miner</a>
+                <a href="/shop" class="miner-link" style="background: var(--purple);">🛒 Shop</a>
                 <a href="/esp32_guides" class="miner-link" style="background: #334155;">📖 ESP32</a>
             </div>
         </div>
