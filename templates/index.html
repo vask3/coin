@@ -1,154 +1,79 @@
 <!DOCTYPE html>
-<html lang="bg">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VASKO (VASK) - PoUW IoT Екосистема</title>
+    <title>VASKO Ecosystem - Decentralized IoT & Token Economy</title>
     <style>
         :root {
             --bg-main: #0b0f19;
             --bg-card: #131d31;
             --border-color: #1e293b;
-            --accent-blue: #38bdf8;
-            --accent-green: #10b981;
             --text-main: #f1f5f9;
             --text-muted: #94a3b8;
+            --accent-blue: #38bdf8;
+            --accent-green: #10b981;
+            --purple: #8b5cf6;
         }
         body {
-            margin: 0;
-            padding: 0;
+            margin: 0; padding: 0;
             background-color: var(--bg-main);
             color: var(--text-main);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px 40px;
-            border-bottom: 1px solid var(--border-color);
-        }
-        .logo {
-            font-size: 22px;
-            font-weight: bold;
-            color: var(--accent-blue);
-        }
-        .nav-links a {
-            color: var(--text-main);
-            text-decoration: none;
-            margin-left: 20px;
-            font-weight: 600;
-        }
-        .btn-action {
-            background-color: var(--accent-green);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: bold;
-        }
-        .hero {
-            max-width: 900px;
-            margin: 60px auto;
-            text-align: center;
-            padding: 0 20px;
-        }
-        .hero h1 {
-            font-size: 42px;
-            margin-bottom: 20px;
-        }
-        .hero p {
-            font-size: 18px;
-            color: var(--text-muted);
             line-height: 1.6;
         }
-        .live-mine-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 30px;
-            margin-top: 40px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-            text-align: left;
+        .hero {
+            max-width: 900px; margin: 60px auto 40px auto; padding: 0 20px; text-align: center;
         }
-        .pulse-dot {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            background-color: var(--accent-green);
-            border-radius: 50%;
-            margin-right: 8px;
-            animation: pulse 1.5s infinite;
+        .hero h1 { font-size: 42px; color: var(--accent-blue); margin-bottom: 15px; font-weight: 800; }
+        .hero p { font-size: 18px; color: var(--text-muted); margin-bottom: 30px; }
+        .cta-buttons { display: flex; justify-content: center; gap: 15px; margin-bottom: 50px; }
+        .btn {
+            padding: 12px 28px; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 15px;
         }
-        @keyframes pulse {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        .btn-primary { background-color: var(--accent-green); color: #fff; }
+        .btn-secondary { background-color: var(--bg-card); border: 1px solid var(--border-color); color: var(--accent-blue); }
+        
+        .features { max-width: 1000px; margin: 0 auto 60px auto; padding: 0 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+        .feature-card {
+            background-color: var(--bg-card); border: 1px solid var(--border-color);
+            border-radius: 16px; padding: 25px;
         }
-        .code-box {
-            background: #0b0f19;
-            border: 1px solid var(--border-color);
-            padding: 12px;
-            border-radius: 8px;
-            font-family: monospace;
-            color: var(--accent-blue);
-            margin-top: 10px;
-            word-break: break-all;
-        }
+        .feature-card h3 { color: var(--accent-blue); margin-top: 0; font-size: 18px; }
+        .feature-card p { color: var(--text-muted); font-size: 14px; margin-bottom: 0; }
+        
+        footer { text-align: center; padding: 30px; color: var(--text-muted); font-size: 13px; border-top: 1px solid var(--border-color); }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <div class="logo">🪙 VASKO Network</div>
-        <div class="nav-links">
-            <a href="/login">Вход</a>
-            <a href="/register" class="btn-action">Регистрация</a>
-        </div>
-    </div>
-
     <div class="hero">
-        <h1>Децентрализирана PoUW & IoT Екосистема</h1>
-        <p>Валидирайте реални сензорни данни, копайте през уеб браузъра си или свържете физическо ESP32 устройство за автоматичен добив на VASK монети.</p>
-
-        <!-- Live Активност на мината -->
-        <div class="live-mine-card">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0; color: #ffffff;"><span class="pulse-dot"></span> Мрежата в реално време</h3>
-                <span style="font-size: 13px; color: var(--text-muted);" id="diff-tag">Трудност: 0000</span>
-            </div>
-
-            <p style="font-size: 14px; color: var(--text-muted); margin-top: 20px; margin-bottom: 5px;">Предстоящ блок за копаене (Target):</p>
-            <div class="code-box" id="next-target">Зареждане на данни...</div>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px;">
-                <div>
-                    <span style="font-size: 12px; color: var(--text-muted);">Общо валидирани блокове:</span>
-                    <div style="font-size: 20px; font-weight: bold; color: var(--accent-green);" id="total-blocks">0</div>
-                </div>
-                <div>
-                    <span style="font-size: 12px; color: var(--text-muted);">Последен копач:</span>
-                    <div style="font-size: 16px; font-weight: bold; color: #ffffff;" id="last-miner">-</div>
-                </div>
-            </div>
+        <h1>Welcome to VASKO Ecosystem</h1>
+        <p>A next-generation semi-decentralized, gamified platform featuring custom token economics, hardware-based IoT mining (ESP32/Arduino), and a functional digital & physical storefront.</p>
+        <div class="cta-buttons">
+            <a href="/login" class="btn btn-primary">Login to Node</a>
+            <a href="/register" class="btn btn-secondary">Create Account (5 VASK Bonus)</a>
         </div>
     </div>
 
-    <script>
-        async function fetchNetworkStatus() {
-            try {
-                const res = await fetch('/api/network_status');
-                const data = await res.json();
-                document.getElementById('next-target').innerText = data.next_target;
-                document.getElementById('diff-tag').innerText = 'Трудност: ' + data.difficulty;
-                document.getElementById('total-blocks').innerText = data.total_blocks;
-                document.getElementById('last-miner').innerText = data.last_miner;
-            } catch (e) {
-                console.error("Грешка при обновяване на статуса", e);
-            }
-        }
-        fetchNetworkStatus();
-        setInterval(fetchNetworkStatus, 3000); // Обновява на всеки 3 секунди
-    </script>
+    <div class="features">
+        <div class="feature-card">
+            <h3>⚡ Proof-of-Work IoT Mining</h3>
+            <p>Connect your ESP32 microcontrollers or use our built-in web miner to solve target payloads, secure the network, and earn dynamic VASK block rewards.</p>
+        </div>
+        <div class="feature-card">
+            <h3>🛒 Official VASK Store</h3>
+            <p>Spend your mined tokens on digital assets, VIP statuses, 3D printing STL files, or physical hardware accessories and stickers with automated shipping tracking.</p>
+        </div>
+        <div class="feature-card">
+            <h3>🌱 Staking & Maintenance Funds</h3>
+            <p>Grow your passive income via secure staking mechanisms while platform fees automatically sustain long-term ecosystem development and node upkeep.</p>
+        </div>
+    </div>
+
+    <footer>
+        &copy; 2026 VASKO Ecosystem. All rights reserved. Powered by Flask & MongoDB Atlas.
+    </footer>
+
 </body>
 </html>
